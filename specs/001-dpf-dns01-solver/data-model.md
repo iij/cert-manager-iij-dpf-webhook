@@ -30,8 +30,9 @@
 
 **`ResolvedZone` を正とする理由**: `ResolvedZone` は SOA の探索で求めた、実際に委任されて
 いるゾーンである。**書いたレコードが ACME サーバから見えるのは、このゾーンに書いた場合に
-限る。** DPF に `ResolvedZone` より長く一致する子ゾーンがあっても、それは委任が繋がって
-いないゾーンであり、そこへ書いても公開 DNS から見えない。したがって DPF のゾーンのうち
+限る。** チャレンジ対象の FQDN と longest match する DPF のゾーンが `ResolvedZone` と異なる
+場合 (`ResolvedZone` の子ゾーンである場合)、それは委任が繋がっていないゾーンであり、そこへ
+書いても公開 DNS から見えない。したがって DPF のゾーンのうち
 `ResolvedZone` と**一致するもの**を選び、無ければ失敗させる (FR-013〜015 / research.md D-18)。
 `utils.GetZoneFromName` は longest match であり、一致するゾーンが無いと親ゾーンを返すため、
 返ったゾーンの名前が `ResolvedZone` と一致することを確かめる。
