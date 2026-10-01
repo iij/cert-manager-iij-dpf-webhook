@@ -79,10 +79,10 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 ### ドメイン名と範囲判定
 
-- [ ] T016 [P] `internal/dnsname/name_test.go` に、正規化名の生成・比較・境界での一度だけの正規化、`dns.IsDomainName` による妥当性検証を検証するテストを書く → T018
-- [ ] T017 [P] `internal/zonefilter/filter_test.go` に、`domainFilters` のパースと判定のテストを書く。**空/未指定で何も許可しないこと**、`*` / `*.<ドメイン>` / 完全一致の 3 形式のみ受け付けること、`*example.jp` などラベル境界に揃わないパターンを**拒否**すること、`*.example.jp` が `example.jp` 自身に**一致しない**こと、大文字小文字と末尾ドットで結果が変わらないことを含める (FR-016, FR-019〜025) → T019
-- [ ] T018 `internal/dnsname/name.go` に正規化名の型を実装する。`dns.CanonicalName` を用い、`strings` による自前実装を行わない
-- [ ] T019 `internal/zonefilter/filter.go` に `domainFilters` のパースと判定を実装する。判定は `dns.IsSubDomain` と正規化名の一致で行い、`strings` を用いない
+- [X] T016 [P] `internal/dnsname/name_test.go` に、正規化名の生成・比較・境界での一度だけの正規化、`dns.IsDomainName` による妥当性検証を検証するテストを書く → T018
+- [X] T017 [P] `internal/zonefilter/filter_test.go` に、`domainFilters` のパースと判定のテストを書く。**空/未指定で何も許可しないこと**、`*` / `*.<ドメイン>` / 完全一致の 3 形式のみ受け付けること、`*example.jp` などラベル境界に揃わないパターンを**拒否**すること、`*.example.jp` が `example.jp` 自身に**一致しない**こと、大文字小文字と末尾ドットで結果が変わらないことを含める (FR-016, FR-019〜025) → T019
+- [X] T018 `internal/dnsname/name.go` に正規化名の型を実装する。`dns.CanonicalName` を用い、`strings` による自前実装を行わない
+- [X] T019 `internal/zonefilter/filter.go` に `domainFilters` のパースと判定を実装する。判定は `dns.IsSubDomain` と正規化名の一致で行い、`strings` を用いない
 
 ### チャレンジのドメインロジック (DPF に依存しない)
 
