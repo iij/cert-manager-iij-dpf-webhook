@@ -648,6 +648,11 @@ cert-manager は失敗したチャレンジに対しても `CleanUp` を呼ぶ�
 憲章および仕様が求める「webhook と exposed を同一ポートにしない」を満たすため、
 認証を要しない別ポートを自前で立てる。
 
+**追記 (実装時)**: コンテナは `--secure-port=10443` で待ち受け、Service が **443** で公開する。
+APIService から見たポートは 443 のまま変わらない。非 root かつ capability をすべて落とした
+コンテナ (`restricted`) は、1024 未満のポートを確実には待ち受けられない
+(`net.ipv4.ip_unprivileged_port_start` はコンテナランタイムに依存する) ためである。
+
 ### D-08: RBAC
 
 **決定**: 次の 3 つに限る。

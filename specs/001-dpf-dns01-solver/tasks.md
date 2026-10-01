@@ -117,7 +117,7 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 - [X] T043 [P] `internal/solver/config_test.go` に、solver 設定のパースのテストを書く。既定値 (`endpoint` / `dpf-token` / `token` / `domainFilters` が空)、**未知フィールドの拒否**、`https` 以外の `endpoint` の拒否、既定値へフォールバックせず失敗させること、**`domainFilters` に `*` が含まれる場合に警告が記録されること** (FR-023a) を含める (FR-003〜005) → T046
 - [X] T044 [P] `internal/solver/options_test.go` に、配備単位の設定の検証テストを書く。**ロックオーナー未設定で起動を中止すること**、33 文字以上と英数字・`.`・`-`・`_` 以外を含む値を拒否すること、猶予・操作期限・ロック TTL が非正なら中止すること、閾値が猶予より短いことを含める (FR-047〜050, FR-080) → T047
-- [ ] T045 [P] `internal/solver/deadline_test.go` に、操作期限のテストを書く。**既定が 60 秒より長い (5 分) こと**、**操作期限の context が要求の context から派生していないこと** (呼び出し元が打ち切っても処理が続くこと)、**操作期限が DPF への呼び出しまで伝播し、操作期限を越えて書き込みが行われないこと**、期限切れの context ではロックの解放が失敗しうること、その場合に処理の正しさが解放の成否に依存しないことを含める (FR-057, FR-057a, FR-058, FR-059) → T067
+- [X] T045 [P] `internal/solver/deadline_test.go` に、操作期限のテストを書く。**既定が 60 秒より長い (5 分) こと**、**操作期限の context が要求の context から派生していないこと** (呼び出し元が打ち切っても処理が続くこと)、**操作期限が DPF への呼び出しまで伝播し、操作期限を越えて書き込みが行われないこと**、期限切れの context ではロックの解放が失敗しうること、その場合に処理の正しさが解放の成否に依存しないことを含める (FR-057, FR-057a, FR-058, FR-059) → T067
 - [X] T046 `internal/solver/config.go` を実装する。`*` を含む `domainFilters` を受け付けた場合は警告を記録する (FR-023a)
 - [X] T047 `internal/solver/options.go` を実装する
 - [X] T048 [P] `internal/version/version_test.go` に、ビルド時に埋め込んだ値 (バージョン・リビジョン) が読み出せ、未設定時に既定の表記になることのテストを書く → T049
@@ -145,29 +145,29 @@ DPF 管理下のドメインの証明書を取得できる
 
 ### Tests for User Story 1 ⚠️ 先に書き、失敗を確認する
 
-- [ ] T055 [P] [US1] `test/contract/solver_test.go` に `webhook.Solver` の契約テストを書く。`Name()` が `iij-dpf` を返すこと、`Present` / `CleanUp` が冪等であること、`Initialize` が配備単位の設定を検証して不足時にエラーを返すことを含める (FR-001 / FR-037 / FR-050) → T063
-- [ ] T056 [P] [US1] `test/integration/clusterissuer_test.go` に、`AllowAmbientCredentials` が `true` の要求でトークン取得元 namespace が決まることのテストを書く。`tokenSecretRef.namespace` の指定あり / 省略時は**本 Pod の namespace**の 2 経路を含める (FR-006) → T063
-- [ ] T057 [P] [US1] `test/integration/wildcard_test.go` に、ワイルドカード名の Certificate で `_acme-challenge.example.com` に対する TXT が作られることのテストを書く → T065
-- [ ] T058 [P] [US1] `test/integration/cname_test.go` に、CNAME 委譲された要求で**委譲先の `ResolvedZone` と一致するゾーン**に対して `domainFilters` が判定されることのテストを書く。委譲元が許可されていても委譲先が不許可なら失敗すること、書き込み対象の名前を `_acme-challenge` に限定しないこと (FR-013 / FR-017 / FR-040 / FR-041) → T065
-- [ ] T059 [P] [US1] `test/integration/retry_after_timeout_test.go` に、**呼び出し元のタイムアウト後に処理が成功し、その後に再試行が来る**場面のテストを書く。`Present` / `CleanUp` の双方で記録の数と RDATA の数がずれないこと、**先の処理が走行中の再試行が排他を待ち、反映を省くこと**を確認する (SC-005 / SC-027) → T065, T066, T067
-- [ ] T060 [P] [US1] `test/integration/no_change_test.go` に、**望む最終状態が現状と一致する場合に変更 API が 0 回であること**のテストを書く。回収対象の無い `CleanUp` と、閾値内の `Present` の再試行の双方で、排他の取得も反映も行わず成功を返すこと (FR-083〜085 / SC-025) → T064
-- [ ] T061 [P] [US1] `test/integration/cleanup_test.go` に、**`CleanUp` が当該チャレンジの RDATA と記録を削除せず、期限切れの回収のみを行うこと**のテストを書く。回収で RDATA が空になる場合はレコードごと削除されること、Present を伴わない `CleanUp` が成功すること (FR-033〜035, FR-038, FR-082) → T066
-- [ ] T062 [P] [US1] `test/integration/chart_us1_test.go` に、チャートが生成する APIService・Deployment・RBAC・values の検証を書く。APIService が `acme.dns-platform.jp/v1alpha1` とポート 443 であること、Deployment のセキュリティ設定 (非 root の固定数値 UID、`runAsNonRoot` / `allowPrivilegeEscalation: false` / `readOnlyRootFilesystem: true` / `capabilities.drop: ["ALL"]` / `seccompProfile.type: RuntimeDefault`)、**RBAC が Secret に `get` のみでワイルドカードを含まないこと**、values の既定が拒否側でトークンの Secret を作らないこと (D-08) → T069〜T072
+- [X] T055 [P] [US1] `test/contract/solver_test.go` に `webhook.Solver` の契約テストを書く。`Name()` が `iij-dpf` を返すこと、`Present` / `CleanUp` が冪等であること、`Initialize` が配備単位の設定を検証して不足時にエラーを返すことを含める (FR-001 / FR-037 / FR-050) → T063
+- [X] T056 [P] [US1] `test/integration/clusterissuer_test.go` に、`AllowAmbientCredentials` が `true` の要求でトークン取得元 namespace が決まることのテストを書く。`tokenSecretRef.namespace` の指定あり / 省略時は**本 Pod の namespace**の 2 経路を含める (FR-006) → T063
+- [X] T057 [P] [US1] `test/integration/wildcard_test.go` に、ワイルドカード名の Certificate で `_acme-challenge.example.com` に対する TXT が作られることのテストを書く → T065
+- [X] T058 [P] [US1] `test/integration/cname_test.go` に、CNAME 委譲された要求で**委譲先の `ResolvedZone` と一致するゾーン**に対して `domainFilters` が判定されることのテストを書く。委譲元が許可されていても委譲先が不許可なら失敗すること、書き込み対象の名前を `_acme-challenge` に限定しないこと (FR-013 / FR-017 / FR-040 / FR-041) → T065
+- [X] T059 [P] [US1] `test/integration/retry_after_timeout_test.go` に、**呼び出し元のタイムアウト後に処理が成功し、その後に再試行が来る**場面のテストを書く。`Present` / `CleanUp` の双方で記録の数と RDATA の数がずれないこと、**先の処理が走行中の再試行が排他を待ち、反映を省くこと**を確認する (SC-005 / SC-027) → T065, T066, T067
+- [X] T060 [P] [US1] `test/integration/no_change_test.go` に、**望む最終状態が現状と一致する場合に変更 API が 0 回であること**のテストを書く。回収対象の無い `CleanUp` と、閾値内の `Present` の再試行の双方で、排他の取得も反映も行わず成功を返すこと (FR-083〜085 / SC-025) → T064
+- [X] T061 [P] [US1] `test/integration/cleanup_test.go` に、**`CleanUp` が当該チャレンジの RDATA と記録を削除せず、期限切れの回収のみを行うこと**のテストを書く。回収で RDATA が空になる場合はレコードごと削除されること、Present を伴わない `CleanUp` が成功すること (FR-033〜035, FR-038, FR-082) → T066
+- [X] T062 [P] [US1] `test/integration/chart_us1_test.go` に、チャートが生成する APIService・Deployment・RBAC・values の検証を書く。APIService が `acme.dns-platform.jp/v1alpha1` とポート 443 であること、Deployment のセキュリティ設定 (非 root の固定数値 UID、`runAsNonRoot` / `allowPrivilegeEscalation: false` / `readOnlyRootFilesystem: true` / `capabilities.drop: ["ALL"]` / `seccompProfile.type: RuntimeDefault`)、**RBAC が Secret に `get` のみでワイルドカードを含まないこと**、values の既定が拒否側でトークンの Secret を作らないこと (D-08) → T069〜T072
 
 ### Implementation for User Story 1
 
-- [ ] T063 [US1] `internal/solver/solver.go` に `Name()` と `Initialize()` を実装する。`Initialize` が受け取る `*rest.Config` から `misc/k8s` の SecretsAPI を作り、配備単位の設定を検証する
-- [ ] T064 [US1] `internal/solver/solver.go` に、**望む最終状態が現状と一致する場合にゾーンへの変更を行わない**分岐を実装する。要否の判定は排他を取らずに `internal/dpf/record.go` で公開レコードを読んで行う (research.md D-06 / D-11 / FR-083〜085)
-- [ ] T065 [US1] `internal/solver/solver.go` に `Present()` を実装する。ゾーン特定 → `domainFilters` 判定 → 事前判定 → `ZoneApplier.Apply` の順に呼ぶ (D-11)
-- [ ] T066 [US1] `internal/solver/solver.go` に `CleanUp()` を実装する。**期限切れの回収のみを行い、当該チャレンジの RDATA と記録を削除しない。**回収すべきものが無ければ何も変更しない (FR-072〜076 / FR-082)
-- [ ] T067 [US1] `internal/solver/solver.go` に操作期限を実装する。`Present` / `CleanUp` に context が渡されないため自前で持つ。**既定 5 分とし、要求の context から派生させない。**操作期限に達したときはロックの解放を試みてエラーを返す (FR-057〜059)
-- [ ] T068 [US1] `internal/dpf/apply.go` の `Description` に `by cert-manager(<ロックオーナー>)` を設定する。形式以外を付与せず、切り詰めない (FR-064)
-- [ ] T069 [P] [US1] `deploy/chart/templates/apiservice.yaml` に APIService を定義する。`acme.dns-platform.jp/v1alpha1`、Service ポート 443
-- [ ] T070 [P] [US1] `deploy/chart/templates/deployment.yaml` に Deployment を定義する。T062 のセキュリティ設定を満たす
-- [ ] T071 [P] [US1] `deploy/chart/templates/rbac.yaml` に RBAC を定義する。**Secret は `get` のみ**、`kube-system` の `extension-apiserver-authentication` に `get`/`list`/`watch`、`tokenreviews`/`subjectaccessreviews` に `create`。ワイルドカードを用いない (D-08)
-- [ ] T072 [P] [US1] `deploy/chart/values.yaml` に既定値を定義する。**既定は拒否側**。トークンの Secret をチャートが作らない
-- [ ] T073 [P] [US1] `test/e2e/acmeserver/acmeserver_test.go` に、e2e が用いる ACME サーバの解決のテストを書く (e2e のビルドタグを付けず通常の `go test` で走る)。**`ACME_SERVER` が未設定なら Let's Encrypt のステージング環境を返すこと**、許可リストの値をそのまま返すこと、**本番環境の一覧の値や未知の値ではエラーを返し e2e を開始しないこと** (憲章「ACME サーバの利用」/ research.md D-17) → T074
-- [ ] T074 [US1] `test/e2e/acmeserver/acmeserver.go` に、`ACME_SERVER` から e2e の ACME サーバを解決する処理を実装する。未設定時の既定はステージング環境とし、本番環境へ既定で接続しない
+- [X] T063 [US1] `internal/solver/solver.go` に `Name()` と `Initialize()` を実装する。`Initialize` が受け取る `*rest.Config` から `misc/k8s` の SecretsAPI を作り、配備単位の設定を検証する
+- [X] T064 [US1] `internal/solver/solver.go` に、**望む最終状態が現状と一致する場合にゾーンへの変更を行わない**分岐を実装する。要否の判定は排他を取らずに `internal/dpf/record.go` で公開レコードを読んで行う (research.md D-06 / D-11 / FR-083〜085)
+- [X] T065 [US1] `internal/solver/solver.go` に `Present()` を実装する。ゾーン特定 → `domainFilters` 判定 → 事前判定 → `ZoneApplier.Apply` の順に呼ぶ (D-11)
+- [X] T066 [US1] `internal/solver/solver.go` に `CleanUp()` を実装する。**期限切れの回収のみを行い、当該チャレンジの RDATA と記録を削除しない。**回収すべきものが無ければ何も変更しない (FR-072〜076 / FR-082)
+- [X] T067 [US1] `internal/solver/solver.go` に操作期限を実装する。`Present` / `CleanUp` に context が渡されないため自前で持つ。**既定 5 分とし、要求の context から派生させない。**操作期限に達したときはロックの解放を試みてエラーを返す (FR-057〜059)
+- [X] T068 [US1] `internal/dpf/apply.go` の `Description` に `by cert-manager(<ロックオーナー>)` を設定する。形式以外を付与せず、切り詰めない (FR-064)
+- [X] T069 [P] [US1] `deploy/chart/templates/apiservice.yaml` に APIService を定義する。`acme.dns-platform.jp/v1alpha1`、Service ポート 443
+- [X] T070 [P] [US1] `deploy/chart/templates/deployment.yaml` に Deployment を定義する。T062 のセキュリティ設定を満たす
+- [X] T071 [P] [US1] `deploy/chart/templates/rbac.yaml` に RBAC を定義する。**Secret は `get` のみ**、`kube-system` の `extension-apiserver-authentication` に `get`/`list`/`watch`、`tokenreviews`/`subjectaccessreviews` に `create`。ワイルドカードを用いない (D-08)
+- [X] T072 [P] [US1] `deploy/chart/values.yaml` に既定値を定義する。**既定は拒否側**。トークンの Secret をチャートが作らない
+- [X] T073 [P] [US1] `test/e2e/acmeserver/acmeserver_test.go` に、e2e が用いる ACME サーバの解決のテストを書く (e2e のビルドタグを付けず通常の `go test` で走る)。**`ACME_SERVER` が未設定なら Let's Encrypt のステージング環境を返すこと**、許可リストの値をそのまま返すこと、**本番環境の一覧の値や未知の値ではエラーを返し e2e を開始しないこと** (憲章「ACME サーバの利用」/ research.md D-17) → T074
+- [X] T074 [US1] `test/e2e/acmeserver/acmeserver.go` に、`ACME_SERVER` から e2e の ACME サーバを解決する処理を実装する。未設定時の既定はステージング環境とし、本番環境へ既定で接続しない
 - [ ] T075 [US1] `test/e2e/us1_clusterissuer_test.go` に、実 DPF と検証用ゾーンに対する通し検証を書く。**ClusterIssuer の ACME サーバは `test/e2e/acmeserver` で解決した値 (既定は Let's Encrypt のステージング環境) とし、本番環境を用いない。**提示 → 反映で証明書が発行されること、**後片付けの時点では RDATA とラベルが残り、期限を過ぎてから同一の名前を操作すると回収されること** (SC-024)、変更履歴の `Description` から配備を判別できること (SC-012) を確認する。あわせて、**証明書の更新を 10 回繰り返したのちに残るチャレンジ用 RDATA が猶予の期間に生じたもののみであること** (SC-006) と、**本サービス以外の RDATA を持つ TXT レコードに対して提示と後片付けを 10 回繰り返しても当初の RDATA と TTL が元のまま残ること** (SC-020) を確認する
 - [ ] T076 [US1] `test/e2e/us1_multicluster_test.go` に、**異なるロックオーナーを持つ 2 つの配備**から (ACME サーバは `test/e2e/acmeserver` で解決した値。本番環境を用いない)、同一の ACME アカウントで同一の名前の証明書を同時に取得する検証を書く。両方の証明書が取得できること、チャレンジレコードのラベルが 1 件であること、一方の後片付けで他方の RDATA が消えないこと (SC-021 / quickstart.md §8)。配備は同一クラスタ内の別 namespace で模してよい
 - [ ] T077 [US1] `CHANGELOG.md` の `Unreleased` に US1 が加えた**利用者に見える挙動**を記録する。solver 設定のスキーマ (`endpoint` / `tokenSecretRef` / `domainFilters`)、groupName と solverName、チャートが生成するリソースと RBAC、ゾーン反映の Description の形式、**使用済みの RDATA が期限まで残ること**、**同じゾーンを触る他のプログラムも `dpf-go` v0.6.0 以降にそろえる必要があること**が対象 (憲章「変更の記録」)

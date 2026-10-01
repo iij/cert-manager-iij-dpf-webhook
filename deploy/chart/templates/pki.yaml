@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# APIService のサービング証明書を cert-manager で発行する。CA はクラスタ内で生成し、
+# cert-manager の cainjector が APIService の caBundle へ注入する。CA をイメージや
+# チャートに焼き込まない。
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "webhook.fullname" . }}-selfsign
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "webhook.fullname" . }}-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "webhook.fullname" . }}-ca
+  duration: 43800h
+  issuerRef:
+    name: {{ include "webhook.fullname" . }}-selfsign
+  commonName: ca.{{ include "webhook.fullname" . }}.cert-manager
+  isCA: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "webhook.fullname" . }}-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ include "webhook.fullname" . }}-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "webhook.fullname" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "webhook.fullname" . }}-tls
+  duration: 8760h
+  issuerRef:
+    name: {{ include "webhook.fullname" . }}-ca
+  dnsNames:
+    - {{ include "webhook.fullname" . }}
+    - {{ include "webhook.fullname" . }}.{{ .Release.Namespace }}
+    - {{ include "webhook.fullname" . }}.{{ .Release.Namespace }}.svc

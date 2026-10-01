@@ -63,6 +63,8 @@ for t in "${targets[@]}"; do
 	# または acme / directory を含むもの) を判定の対象にする。
 	while IFS=: read -r file line url; do
 		[[ -z "$url" ]] && continue
+		# 接続先の判定を定義する場所 (許可リストと本番環境の一覧) は検査しない。
+		[[ "$file" == "$root/test/e2e/acmeserver/"* ]] && continue
 		if contains "$url" "${allowed[@]}"; then
 			continue
 		fi

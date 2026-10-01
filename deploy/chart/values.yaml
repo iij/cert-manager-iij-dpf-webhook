@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 既定は拒否側である (憲章 原則 VI)。変更してよいゾーンは Issuer / ClusterIssuer の
+# domainFilters で与え、空ならいかなるゾーンも変更しない。
+# トークンの Secret は本チャートが作らない。利用者が作成した Secret を参照する。
+
+# groupName は solver の API グループ。本サービスは acme.dns-platform.jp で待ち受けるため変更しない。
+# Issuer / ClusterIssuer の groupName と一致させる。
+groupName: acme.dns-platform.jp
+
+# lockOwner はゾーンロックの保持者 (必須)。複数のクラスタが同じゾーンを更新する場合に
+# どの配備かを区別できる値にする。1〜32 文字、英数字と . - _ のみ。
+lockOwner: ""
+
+# certManager は cert-manager 本体の配置。cert-manager の ServiceAccount に solver の
+# 呼び出しを許可するために用いる。
+certManager:
+  namespace: cert-manager
+  serviceAccountName: cert-manager
+
+image:
+  repository: ghcr.io/iij/cert-manager-iij-dpf-webhook
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# 配備単位の設定 (省略時はサービスの既定値)。
+logLevel: ""
+expireGrace: ""
+expireThreshold: ""
+operationDeadline: ""
+lockTTL: ""
+lockWait: ""
+
+# securePort はコンテナが webhook を待ち受けるポート。Service は 443 で公開する。
+# 非 root かつ capability を持たないコンテナは 1024 未満を確実には待ち受けられないため
+# 1024 以上とする (research.md D-07)。
+securePort: 10443
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
