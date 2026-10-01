@@ -36,6 +36,7 @@ run "本番環境の接続先を拒否し、本番環境であることを示す
 run "本番環境の拒否の理由に本番環境であることを示す" 1 "本番環境" -- --root "$data/production"
 run "一覧に無い未知の ACME サーバも拒否する" 1 "https://acme.example-ca.test/acme/directory" -- --root "$data/unknown"
 run "利用者向けの文書 (README・quickstart) は検査しない" 0 "" -- --root "$data/user-docs"
+run "接続先の判定を定義する test/e2e/acmeserver は検査しない" 0 "" -- --root "$data/guard"
 run "存在しないルートは失敗する" 2 "" -- --root "$data/does-not-exist"
 
 exit "$fail"

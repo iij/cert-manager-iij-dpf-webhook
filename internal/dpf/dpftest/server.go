@@ -61,9 +61,10 @@ type AtomicRequest struct {
 type Server struct {
 	mu sync.Mutex
 
-	URL   string
-	zones []*Zone
-	next  int
+	URL       string
+	zones     []*Zone
+	next      int
+	transport http.RoundTripper
 
 	// 呼び出しの記録。
 	Atomics       int
@@ -83,10 +84,24 @@ type Server struct {
 	BeforeAtomic func(s *Server)
 }
 
-// New は模擬サーバを起動する。テストの終了時に停止する。
+// New は模擬サーバを HTTP で起動する。テストの終了時に停止する。
 func New(t testing.TB, zones ...*Zone) *Server {
 	t.Helper()
-	s := &Server{zones: zones}
+	return start(t, false, zones)
+}
+
+// NewTLS は模擬サーバを HTTPS で起動する。接続には Transport を用いる。
+// solver 設定の endpoint は https を必須とするため、solver を通す検証に用いる。
+func NewTLS(t testing.TB, zones ...*Zone) *Server {
+	t.Helper()
+	return start(t, true, zones)
+}
+
+// Transport は模擬サーバの証明書を信頼する RoundTripper を返す。
+func (s *Server) Transport() http.RoundTripper { return s.transport }
+
+func start(t testing.TB, tls bool, zones []*Zone) *Server {
+	s := &Server{zones: zones, transport: http.DefaultTransport}
 	for _, z := range zones {
 		if z.Labels == nil {
 			z.Labels = map[string]string{}
@@ -95,7 +110,13 @@ func New(t testing.TB, zones ...*Zone) *Server {
 			s.ensureID(r)
 		}
 	}
-	srv := httptest.NewServer(http.HandlerFunc(s.serve))
+	var srv *httptest.Server
+	if tls {
+		srv = httptest.NewTLSServer(http.HandlerFunc(s.serve))
+		s.transport = srv.Client().Transport
+	} else {
+		srv = httptest.NewServer(http.HandlerFunc(s.serve))
+	}
 	t.Cleanup(srv.Close)
 	s.URL = srv.URL
 	return s
