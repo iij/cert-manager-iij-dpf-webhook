@@ -86,14 +86,14 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 ### チャレンジのドメインロジック (DPF に依存しない)
 
-- [ ] T020 [P] `internal/challenge/digest_test.go` に、対象の識別値の算出テストを書く。`SHA-256(チャレンジコード)` の先頭 64 ビットを 16 進 16 文字で表すことを固定する。**保持者の識別値は持たない** (D-02 / D-03 / FR-070 / FR-071) → T025
-- [ ] T021 [P] `internal/challenge/expire_test.go` に、期限の記録 (ラベル) の符号化・復号・回収判定のテストを書く。キーが `expire.acme.dns-platform.jp/<対象>`、値が Unixtime であること、**prefix が一致しないラベルを維持すること**、**対応するラベルを持たない RDATA を回収しないこと**、期限切れのラベルを RDATA の有無によらず取り除くこと、上限 10 到達で失敗させ**追い出しをしないこと**を含める (FR-066〜069, FR-072〜076, FR-086) → T026
-- [ ] T022 [P] `internal/challenge/plan_test.go` に、現在の状態と要求から `ChangeSet` を導くテストを書く。data-model.md の状態遷移表を網羅する。**`CleanUp` が当該コードの RDATA とラベルを削除しないこと**、**回収すべきものが無い `CleanUp` が「変更なし」を返すこと**、`Present` が RDATA を重複させず期限を閾値未満のときのみ更新すること、**他者の RDATA とラベルを維持すること**、既存レコードへの追記で TTL を変更しないこと、回収で RDATA が空になる場合にレコードごと削除する計画を返すこと、TXT 以外を対象にしないことを含める (FR-026〜039, FR-066, FR-077〜083) → T027
-- [ ] T023 [P] `internal/challenge/plan_test.go` に、**呼び出し元がタイムアウトしたのち処理が成功した場合の再試行**のテストを書く。`Present` の再試行で RDATA が重複せず、閾値内なら変更なしを返すこと、`CleanUp` の再試行が何も起こさないことを含める。**期限による回収では「ずれる量」が存在しない**ことを固定する (research.md D-15 / SC-005) → T027
-- [ ] T024 [P] `internal/challenge/plan_test.go` に、**再試行ストームへの配慮**のテストを書く。閾値の期間内に同一の提示を 10 回繰り返したとき、変更が生じるのが 1 回目のみであることを確認する。**RDATA はあるがラベルが無い場合は変更が生じること**も含める (FR-078 / FR-079 / SC-026) → T027
-- [ ] T025 `internal/challenge/digest.go` を実装する
-- [ ] T026 `internal/challenge/expire.go` を実装する
-- [ ] T027 `internal/challenge/plan.go` を実装する。**この層は DPF の型を参照しない**
+- [X] T020 [P] `internal/challenge/digest_test.go` に、対象の識別値の算出テストを書く。`SHA-256(チャレンジコード)` の先頭 64 ビットを 16 進 16 文字で表すことを固定する。**保持者の識別値は持たない** (D-02 / D-03 / FR-070 / FR-071) → T025
+- [X] T021 [P] `internal/challenge/expire_test.go` に、期限の記録 (ラベル) の符号化・復号・回収判定のテストを書く。キーが `expire.acme.dns-platform.jp/<対象>`、値が Unixtime であること、**prefix が一致しないラベルを維持すること**、**対応するラベルを持たない RDATA を回収しないこと**、期限切れのラベルを RDATA の有無によらず取り除くこと、上限 10 到達で失敗させ**追い出しをしないこと**を含める (FR-066〜069, FR-072〜076, FR-086) → T026
+- [X] T022 [P] `internal/challenge/plan_test.go` に、現在の状態と要求から `ChangeSet` を導くテストを書く。data-model.md の状態遷移表を網羅する。**`CleanUp` が当該コードの RDATA とラベルを削除しないこと**、**回収すべきものが無い `CleanUp` が「変更なし」を返すこと**、`Present` が RDATA を重複させず期限を閾値未満のときのみ更新すること、**他者の RDATA とラベルを維持すること**、既存レコードへの追記で TTL を変更しないこと、回収で RDATA が空になる場合にレコードごと削除する計画を返すこと、TXT 以外を対象にしないことを含める (FR-026〜039, FR-066, FR-077〜083) → T027
+- [X] T023 [P] `internal/challenge/plan_test.go` に、**呼び出し元がタイムアウトしたのち処理が成功した場合の再試行**のテストを書く。`Present` の再試行で RDATA が重複せず、閾値内なら変更なしを返すこと、`CleanUp` の再試行が何も起こさないことを含める。**期限による回収では「ずれる量」が存在しない**ことを固定する (research.md D-15 / SC-005) → T027
+- [X] T024 [P] `internal/challenge/plan_test.go` に、**再試行ストームへの配慮**のテストを書く。閾値の期間内に同一の提示を 10 回繰り返したとき、変更が生じるのが 1 回目のみであることを確認する。**RDATA はあるがラベルが無い場合は変更が生じること**も含める (FR-078 / FR-079 / SC-026) → T027
+- [X] T025 `internal/challenge/digest.go` を実装する
+- [X] T026 `internal/challenge/expire.go` を実装する
+- [X] T027 `internal/challenge/plan.go` を実装する。**この層は DPF の型を参照しない**
 
 ### DPF クライアント層 (憲章 原則 II の境界)
 
