@@ -47,17 +47,17 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 **Purpose**: プロジェクトの初期化と、憲章が求める品質ゲートの土台
 
-- [ ] T001 `go.mod` を作成し go ディレクティブを `1.27` とする。依存を `github.com/cert-manager/cert-manager v1.21.2` / `github.com/iij/dpf-go v0.6.0` / `github.com/iij/dpf-go/misc/k8s` / `github.com/miekg/dns` / `k8s.io/client-go` に固定する
-- [ ] T002 [P] `LICENSE` に Apache License 2.0 を置き、著作権表示を `Copyright 2026 Internet Initiative Japan Inc.` とする
-- [ ] T003 [P] `CHANGELOG.md` を Keep a Changelog 形式で作成する。`Unreleased` の節と、SemVer に従う旨の注記を置く。憲章 v3.1.0 が求める「変更の記録」の受け皿とする
-- [ ] T004 [P] `.golangci.yml` を作成し、有効な linter とバージョンを固定する。ローカルと CI が同一設定で動くようにする
-- [ ] T005 [P] `scripts/check-spdx.sh` を作成し、全 `.go` ファイル先頭の `// SPDX-License-Identifier: Apache-2.0` を検査する
-- [ ] T006 [P] `scripts/check-domain-string.sh` を作成し、ドメイン名の判定に `strings` パッケージが使われていないことを検査する (憲章のレビュー観点の自動化)
-- [ ] T007 [P] `scripts/testdata/acme-endpoints/` に検査用の入力を置き、`scripts/check-acme-endpoints_test.sh` に `scripts/check-acme-endpoints.sh` のテストを書く。**許可リスト (Let's Encrypt のステージング環境) のみを含む入力で成功すること**、本番環境の一覧 (plan.md の Technical Context) のいずれかを含む入力で失敗し拒否の理由に該当の接続先を示すこと、**一覧に無い未知の ACME サーバを含む入力でも失敗すること**、利用者向けの文書 (`README.md`・`specs/**/quickstart.md`) を検査の対象にしないことを含める (憲章「ACME サーバの利用」/ research.md D-17) → T008
-- [ ] T008 `scripts/check-acme-endpoints.sh` を作成する。`test/`・`.github/`・CI が用いる values に現れる ACME のディレクトリ URL を抽出し、許可リスト外を拒否する。本番環境の一覧に該当する場合はその旨を示す。対象は本プロジェクトのテストと CI に限る (plan.md の Technical Context)
-- [ ] T009 [P] `Makefile` に `fmt` / `lint` / `vuln` / `test` / `build` / `spdx` / `acme-endpoints` の各ターゲットを定義する
-- [ ] T010 [P] `.github/pull_request_template.md` を作成し、**テストが実装に先行したことを追跡できる欄**を設ける。テストを追加したコミット、そのテストが失敗したことの確認 (実行結果)、実装のコミットを記入させる。バグ修正では再現テストのコミットを記入させる。あわせてコミットの規約 (テストと実装を別コミットにし、テストを先に置く) を `CONTRIBUTING.md` に記載する (憲章 原則 III)
-- [ ] T011 plan.md の Project Structure に従って `cmd/webhook/` `internal/{solver,challenge,zonefilter,dnsname,dpf,tokensource,observability,version}/` `deploy/chart/` `test/{contract,integration,e2e}/` のディレクトリを作成する
+- [X] T001 `go.mod` を作成し go ディレクティブを `1.27` とする。依存を `github.com/cert-manager/cert-manager v1.21.2` / `github.com/iij/dpf-go v0.6.0` / `github.com/iij/dpf-go/misc/k8s` / `github.com/miekg/dns` / `k8s.io/client-go` に固定する
+- [X] T002 [P] `LICENSE` に Apache License 2.0 を置き、著作権表示を `Copyright 2026 Internet Initiative Japan Inc.` とする
+- [X] T003 [P] `CHANGELOG.md` を Keep a Changelog 形式で作成する。`Unreleased` の節と、SemVer に従う旨の注記を置く。憲章 v3.1.0 が求める「変更の記録」の受け皿とする
+- [X] T004 [P] `.golangci.yml` を作成し、有効な linter とバージョンを固定する。ローカルと CI が同一設定で動くようにする
+- [X] T005 [P] `scripts/check-spdx.sh` を作成し、全 `.go` ファイル先頭の `// SPDX-License-Identifier: Apache-2.0` を検査する
+- [X] T006 [P] `scripts/check-domain-string.sh` を作成し、ドメイン名の判定に `strings` パッケージが使われていないことを検査する (憲章のレビュー観点の自動化)
+- [X] T007 [P] `scripts/testdata/acme-endpoints/` に検査用の入力を置き、`scripts/check-acme-endpoints_test.sh` に `scripts/check-acme-endpoints.sh` のテストを書く。**許可リスト (Let's Encrypt のステージング環境) のみを含む入力で成功すること**、本番環境の一覧 (plan.md の Technical Context) のいずれかを含む入力で失敗し拒否の理由に該当の接続先を示すこと、**一覧に無い未知の ACME サーバを含む入力でも失敗すること**、利用者向けの文書 (`README.md`・`specs/**/quickstart.md`) を検査の対象にしないことを含める (憲章「ACME サーバの利用」/ research.md D-17) → T008
+- [X] T008 `scripts/check-acme-endpoints.sh` を作成する。`test/`・`.github/`・CI が用いる values に現れる ACME のディレクトリ URL を抽出し、許可リスト外を拒否する。本番環境の一覧に該当する場合はその旨を示す。対象は本プロジェクトのテストと CI に限る (plan.md の Technical Context)
+- [X] T009 [P] `Makefile` に `fmt` / `lint` / `vuln` / `test` / `build` / `spdx` / `acme-endpoints` の各ターゲットを定義する
+- [X] T010 [P] `.github/pull_request_template.md` を作成し、**テストが実装に先行したことを追跡できる欄**を設ける。テストを追加したコミット、そのテストが失敗したことの確認 (実行結果)、実装のコミットを記入させる。バグ修正では再現テストのコミットを記入させる。あわせてコミットの規約 (テストと実装を別コミットにし、テストを先に置く) を `CONTRIBUTING.md` に記載する (憲章 原則 III)
+- [X] T011 plan.md の Project Structure に従って `cmd/webhook/` `internal/{solver,challenge,zonefilter,dnsname,dpf,tokensource,observability,version}/` `deploy/chart/` `test/{contract,integration,e2e}/` のディレクトリを作成する
 
 ---
 
