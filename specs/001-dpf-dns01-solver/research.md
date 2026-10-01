@@ -24,6 +24,7 @@
 >   設計を改めた。§2.3 / §2.4.1 / §2.5 / D-11 / D-13 / D-15 / D-16 / §4 を改め、
 >   変更 API の回数による成功基準 (旧 SC-002) を撤回した。
 > - **憲章 v3.2.0** (ACME サーバの利用) を受けて D-17 を追加した。
+> - k8s ライブラリの版の不一致を受けて D-19 を追加した。
 > - 変更するゾーンを longest match から **`ResolvedZone` との一致**へ改め、D-18 を追加した
 >   (data-model.md の「`ResolvedZone` を信頼しない」の記述は誤りだった)。
 >
@@ -1082,6 +1083,28 @@ ClusterIssuer の例) が本番環境を指すことは本来の用途であり�
 おり、SOA の探索は子ゾーンに到達するため、`ResolvedZone` は子ゾーンの名前になる。**
 したがって `ResolvedZone` と一致するゾーンへの書き込みが、委任の有無によって拒否される
 経路は無い。実環境での確認は要さない。
+
+### D-19: k8s ライブラリの版を v0.37 に揃える
+
+**決定**: `k8s.io/apiserver` と `k8s.io/component-base` を **v0.37.1** に上げ、`k8s.io/api` /
+`apimachinery` / `client-go` (v0.37.1) と揃える。cert-manager は v1.21.2 のまま用いる。
+
+**経緯**: cert-manager v1.21.2 (調査時点の最新) は k8s ライブラリを v0.36.2 で用いる。
+一方 `github.com/iij/dpf-go/misc/k8s` は `client-go` などを v0.37.0 以上で要求する。
+Go の最小バージョン選択により `client-go` / `apimachinery` は v0.37 に上がり、
+`apiserver` だけが v0.36.2 に残る。この組み合わせは `k8s.io/apiserver/pkg/registry/rest`
+の型の不一致でビルドできない。
+
+**比較した案**:
+
+| 案 | 評価 |
+|---|---|
+| **apiserver と component-base も v0.37.1 に上げる (採用)** | ビルドできる。`RequestTimeout` の既定は v0.37.1 でも 60 秒 (`pkg/server/config.go:453`) であり D-15 の前提は変わらない。cert-manager v1.21.2 が前提としない組み合わせであるため、実行時の不整合は契約テストと e2e で検出する |
+| misc/k8s の要求を v0.36 に下げてもらう | 版の組み合わせが cert-manager の前提どおりになる。dpf-go 側の変更とリリースを待つ必要がある |
+| misc/k8s を使わず Secret の読み出しを自前で書く | D-09 を覆す。ローテーション追随とエラー分類を自前で持つことになる |
+
+**見直しの契機**: cert-manager が k8s v0.37 系に上がった版を出した場合、または misc/k8s が
+v0.36 系を受け付けるようになった場合は、本決定を見直す。
 
 ## 4. 実環境検証で確認すべきこと
 

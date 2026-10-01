@@ -50,7 +50,7 @@ cert-manager v1.21.2 の `go.mod` は `go 1.26.0` であり矛盾しない。
 | `github.com/iij/dpf-go/misc/k8s` | Kubernetes Secret からトークンを取る TokenProvider |
 | `github.com/miekg/dns` | ドメイン名の正規化・包含判定・ラベル分割 |
 | `k8s.io/client-go` | Secret の取得 (`Initialize` が渡す rest.Config から生成) |
-| `k8s.io/apiserver` | 集約 API サーバ基盤 (cert-manager 経由で間接依存) |
+| `k8s.io/apiserver` **v0.37.1** | 集約 API サーバ基盤 (cert-manager 経由で間接依存)。misc/k8s と版を揃えるため cert-manager の前提 (v0.36.2) から上げる (research.md D-19) |
 
 `misc/vault` / `misc/aws` / `misc/azure` / `misc/gcp` は**使わない**。
 HashiCorp 系の MPL-2.0 依存は入らない。`misc/k8s` は `k8s.io/client-go` (Apache-2.0) のみを
