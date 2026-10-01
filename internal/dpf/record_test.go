@@ -14,7 +14,7 @@ import (
 
 // D-11 2a / FR-084: 排他を取らずに、対象名の TXT の RDATA とラベルを読む。
 func TestReadChallenge(t *testing.T) {
-	z := dpftest.StandardZone("z1", "example.jp.")
+	z := dpftest.StandardZone("zone0000000001", "example.jp.")
 	z.Records = append(z.Records,
 		&dpftest.Record{Name: "_acme-challenge.example.jp.", Rrtype: "TXT",
 			Rdata: []string{`"a"`, `"b"`}, Labels: map[string]string{"k": "v"}},
@@ -25,7 +25,7 @@ func TestReadChallenge(t *testing.T) {
 	)
 	srv := dpftest.New(t, z)
 	c := newClient(t, srv)
-	zone := dpf.Zone{ID: "z1", Name: dnsname.MustParse("example.jp")}
+	zone := dpf.Zone{ID: "zone0000000001", Name: dnsname.MustParse("example.jp")}
 
 	rec, err := c.ReadChallenge(context.Background(), zone, dnsname.MustParse("_ACME-challenge.example.jp"))
 	if err != nil {

@@ -130,7 +130,7 @@ func (z *Zone) Find(name, rrtype string) *Record {
 func (s *Server) ensureID(r *Record) {
 	if r.ID == "" {
 		s.next++
-		r.ID = fmt.Sprintf("r%06d", s.next)
+		r.ID = fmt.Sprintf("r%013d", s.next) // ID は 14 文字 (API の制約)
 	}
 	if r.Labels == nil {
 		r.Labels = map[string]string{}

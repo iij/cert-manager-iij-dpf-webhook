@@ -27,7 +27,7 @@ func i32(v int32) *int32 { return &v }
 
 // applyZone は本サービスと無関係なレコードを含むゾーンを返す。
 func applyZone() *dpftest.Zone {
-	z := dpftest.StandardZone("z1", testZone)
+	z := dpftest.StandardZone("zone0000000001", testZone)
 	z.Records = append(z.Records,
 		// TTL が null、ラベル付き、コメント付きの無関係なレコード。
 		&dpftest.Record{Name: "www.example.jp.", Rrtype: "A", Rdata: []string{"192.0.2.1"},
@@ -40,7 +40,7 @@ func applyZone() *dpftest.Zone {
 }
 
 func target() (dpf.Zone, dnsname.Name) {
-	return dpf.Zone{ID: "z1", Name: dnsname.MustParse(testZone)}, dnsname.MustParse(testFQDN)
+	return dpf.Zone{ID: "zone0000000001", Name: dnsname.MustParse(testZone)}, dnsname.MustParse(testFQDN)
 }
 
 func opts() dpf.ApplyOptions {
@@ -75,7 +75,7 @@ func TestApplyKeepsOtherRecords(t *testing.T) {
 	srv := dpftest.New(t, applyZone())
 	c := newClient(t, srv)
 	srv.Lock()
-	before := snapshot(srv.Zone("z1"))
+	before := snapshot(srv.Zone("zone0000000001"))
 	srv.Unlock()
 
 	zone, fqdn := target()
@@ -89,14 +89,14 @@ func TestApplyKeepsOtherRecords(t *testing.T) {
 	if srv.Atomics != 1 {
 		t.Fatalf("Atomics = %d", srv.Atomics)
 	}
-	if got := snapshot(srv.Zone("z1")); !reflect.DeepEqual(got, before) {
+	if got := snapshot(srv.Zone("zone0000000001")); !reflect.DeepEqual(got, before) {
 		t.Errorf("other records changed:\n got  %+v\n want %+v", got, before)
 	}
 	req := srv.LastAtomic
 	if req.OverwriteSoa == nil || *req.OverwriteSoa || req.OverwriteZoneApexNs == nil || *req.OverwriteZoneApexNs {
 		t.Errorf("overwrite flags must be false: %v %v", req.OverwriteSoa, req.OverwriteZoneApexNs)
 	}
-	txt := srv.Zone("z1").Find(testFQDN, "TXT")
+	txt := srv.Zone("zone0000000001").Find(testFQDN, "TXT")
 	if txt == nil || !reflect.DeepEqual(txt.Rdata, []string{`"KEY"`}) {
 		t.Fatalf("challenge record = %+v", txt)
 	}
@@ -126,7 +126,7 @@ func TestApplyAppendKeepsTTL(t *testing.T) {
 	}
 	srv.Lock()
 	defer srv.Unlock()
-	txt := srv.Zone("z1").Find(testFQDN, "TXT")
+	txt := srv.Zone("zone0000000001").Find(testFQDN, "TXT")
 	if txt.TTL == nil || *txt.TTL != 300 || txt.Description != "keep" || txt.Labels["foreign"] != "x" {
 		t.Fatalf("record = %+v", txt)
 	}
@@ -152,10 +152,10 @@ func TestApplyDeletesRecord(t *testing.T) {
 	}
 	srv.Lock()
 	defer srv.Unlock()
-	if srv.Zone("z1").Find(testFQDN, "TXT") != nil {
+	if srv.Zone("zone0000000001").Find(testFQDN, "TXT") != nil {
 		t.Fatalf("challenge record remains")
 	}
-	if srv.Zone("z1").Find(testFQDN, "CAA") == nil {
+	if srv.Zone("zone0000000001").Find(testFQDN, "CAA") == nil {
 		t.Fatalf("non-TXT record at the same name was removed")
 	}
 }
@@ -183,8 +183,8 @@ func TestApplySkipsWhenNoChange(t *testing.T) {
 		t.Fatalf("atomic changes were sent: %d", srv.Atomics)
 	}
 	// 排他は取得・解放された (既定の排他を用いている。D-16)。
-	if _, ok := srv.Zone("z1").Labels["lock.dpf-go"]; !ok {
-		t.Errorf("lock label was not written: %v", srv.Zone("z1").Labels)
+	if _, ok := srv.Zone("zone0000000001").Labels["lock.dpf-go"]; !ok {
+		t.Errorf("lock label was not written: %v", srv.Zone("zone0000000001").Labels)
 	}
 }
 
@@ -256,7 +256,7 @@ func TestApplyPlanError(t *testing.T) {
 func TestApplyLockConfiguration(t *testing.T) {
 	srv := dpftest.New(t, applyZone())
 	var lockValue string
-	srv.BeforeAtomic = func(s *dpftest.Server) { lockValue = s.Zone("z1").Labels["lock.dpf-go"] }
+	srv.BeforeAtomic = func(s *dpftest.Server) { lockValue = s.Zone("zone0000000001").Labels["lock.dpf-go"] }
 	c := newClient(t, srv)
 	zone, fqdn := target()
 	start := time.Now()

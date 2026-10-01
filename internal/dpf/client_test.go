@@ -23,7 +23,7 @@ func (c *countingRT) RoundTrip(r *http.Request) (*http.Response, error) {
 // D-09: 出所が同じなら同じクライアントを、異なれば別のクライアントを返す。
 // いずれも共通の RoundTripper を用いる。
 func TestClientsCache(t *testing.T) {
-	srv := dpftest.New(t, dpftest.StandardZone("z1", "example.jp."))
+	srv := dpftest.New(t, dpftest.StandardZone("zone0000000001", "example.jp."))
 	base := &countingRT{}
 	clients := dpf.NewClients(dpf.NewSharedTransport(base, 1000, 1000, 10), &staticTokens{})
 
@@ -62,7 +62,7 @@ func TestClientsCache(t *testing.T) {
 
 // FR-011: トークンは要求ごとに評価される (ローテーションに追随する)。
 func TestTokenEvaluatedPerRequest(t *testing.T) {
-	srv := dpftest.New(t, dpftest.StandardZone("z1", "example.jp."))
+	srv := dpftest.New(t, dpftest.StandardZone("zone0000000001", "example.jp."))
 	c := newClient(t, srv)
 	zone := dnsname.MustParse("example.jp")
 	for i := 0; i < 2; i++ {

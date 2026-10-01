@@ -97,21 +97,21 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 ### DPF クライアント層 (憲章 原則 II の境界)
 
-- [ ] T028 [P] `internal/dpf/errors_test.go` に、DPF と `misc/k8s` のエラーを本プロジェクトのエラー型へ変換するテストを書く。`ErrSecretNotFound` / `ErrKeyNotFound` / `ErrEmptySecret` / `ErrForbidden` を**恒久的な失敗**、到達失敗を**一時的な失敗**に分類すること、`ErrStillLock` / `ErrNotLockHolder` / `ErrLabelLimit` (v0.6.0 では**ゾーンの**ラベルの枠が足りない) / `ErrOwnerTooLong` を判別できることを含める。`ErrLabelLimit` は恒久的な失敗に分類する。**`dpf-go` の型が戻り値に現れないこと**を確かめる → T035
-- [ ] T029 [P] `internal/dpf/ratelimit_test.go` に、共通 RoundTripper のテストを書く。**複数のクライアントから送った要求が 1 つのレート制限 (5 req/s, burst 10) と同時実行数 (5) を共有すること**を確認する (D-09) → T036
-- [ ] T030 [P] `internal/dpf/client_test.go` に、クライアントのキャッシュのテストを書く。トークンの出所 (namespace, Secret 名, key) が同じなら同じクライアントを返し、異なれば別のクライアントを返すこと、いずれも共通の RoundTripper を用いること、**トークンが要求ごとに評価されること** (ローテーション追随) を含める (D-09 / FR-011) → T037
-- [ ] T031 [P] `internal/dpf/zone_test.go` に、ゾーン特定のテストを書く。**`ResolvedZone` と一致するゾーンを選ぶこと**、**チャレンジ対象の FQDN と longest match するゾーンが `ResolvedZone` の子ゾーンである場合に、それを選ばないこと**、**`ResolvedZone` が無く親ゾーンだけがある場合に親ゾーンへ読み替えず失敗すること** (`utils.GetZoneFromName` が親ゾーンを返す場合を差し替えで再現する)、`ResolvedFQDN` が `ResolvedZone` の配下に無ければ失敗すること、比較が正規化名で行われること、見つからない場合に `ResolvedZone` と対象 FQDN を含むエラーを返すことを含める (FR-013〜015 / research.md D-18) → T038
-- [ ] T032 [P] `internal/dpf/record_test.go` に、**排他を取らない公開レコードの読み出し**のテストを書く。対象名の TXT の RDATA とラベルを返すこと、ラベル・TTL の null を失わないことを含める (D-11 の 2a / FR-084) → T039
-- [ ] T033 [P] `internal/dpf/apply_test.go` に、`ZoneApplier` のラップのテストを書く。編集関数が対象以外のレコードをそのまま返すこと、**結果が入力と変わらない場合に `utils.ErrSkipApply` を返し、`PatchZoneAtomicChanges` が呼ばれないこと** (FR-084a)、context が打ち切られている場合は `ErrSkipApply` ではなく `ctx.Err()` を返すこと、**反映の後に解放だけが失敗した場合も失敗として返すこと** (FR-059)、書き込み直前に `domainFilters` を再判定すること (FR-018)、**構成に `utils.WithLocker` を含まないこと** (D-16)、ロックオーナー・TTL 2 分・待機間隔 5 秒で構成されること、**反映の Description が `by cert-manager(<ロックオーナー>)` であり、ロックオーナーが 32 文字のとき 49 文字で上限 80 に収まり切り詰めが起きないこと** (FR-064 / SC-014) を含める。`dpf.RecordsApi` / `ZonesApi` (v0.6.0 の `GetZoneLabels` / `PutZoneLabels` を含む) / `JobsApi` を差し替えて実 API に到達しない (FR-042, FR-043, FR-059〜062, FR-084a) → T040, T041, T068
-- [ ] T034 [P] `internal/tokensource/provider_test.go` に、`misc/k8s` の `NewTokenProvider` の組み立てのテストを書く。**namespace・Secret 名・key を明示的に渡すこと**、自前で Secret を読まないこと、トークンの値がエラーに含まれないことを含める (D-09 / FR-006 / FR-012) → T042
-- [ ] T035 `internal/dpf/errors.go` を実装する。`dpf-go` の型とエラーを上位へ漏らさない
-- [ ] T036 `internal/dpf/ratelimit.go` に、プロセス全体で 1 つの RoundTripper を実装する。レート制限と同時実行数がクライアントのキャッシュごとに分かれないようにする (D-09)
-- [ ] T037 `internal/dpf/client.go` に、トークンの出所 (namespace, Secret 名, key) をキーとするクライアントのキャッシュを実装する。共通の RoundTripper を `WithHTTPClient` で注入する
-- [ ] T038 [P] `internal/dpf/zone.go` に、`ResolvedZone` と一致するゾーンの特定を実装する。`utils.GetZoneFromName(ctx, cz, ResolvedZone, false)` の結果の名前が `ResolvedZone` と正規化名で一致することを確かめ、一致しなければ失敗させる (research.md D-18)
-- [ ] T039 [P] `internal/dpf/record.go` に、排他を取らない公開レコードの読み出しを実装する (D-11 の 2a)
-- [ ] T040 `internal/dpf/apply.go` に `utils.ZoneApplier` のラップを実装する。**`PatchZoneAtomicChanges` を直接呼ばない**。`NewZoneApplier(..., WithLockOptions(WithOwner(owner), WithTTL(2*time.Minute)), WithHoldOptions(WithLockWait(5*time.Second)))` の形で構成し、`Apply` に `WithApplyDescription` を渡す。編集関数は変更が不要なら `utils.ErrSkipApply` を返す (D-11 / D-13)
-- [ ] T041 `internal/dpf/apply.go` で **`utils.WithLocker` を呼ばない**ことを担保する。既定の排他は 2 者の同時取得をユーザをまたいで防ぐが、差し替えるとその範囲がその仕組みの利用者に狭まる (D-16)
-- [ ] T042 `internal/tokensource/provider.go` に、`misc/k8s` の `NewTokenProvider` を要求ごとに組み立てる処理を実装する。namespace は必ず明示的に渡す。自前で Secret を読まない (D-09)
+- [X] T028 [P] `internal/dpf/errors_test.go` に、DPF と `misc/k8s` のエラーを本プロジェクトのエラー型へ変換するテストを書く。`ErrSecretNotFound` / `ErrKeyNotFound` / `ErrEmptySecret` / `ErrForbidden` を**恒久的な失敗**、到達失敗を**一時的な失敗**に分類すること、`ErrStillLock` / `ErrNotLockHolder` / `ErrLabelLimit` (v0.6.0 では**ゾーンの**ラベルの枠が足りない) / `ErrOwnerTooLong` を判別できることを含める。`ErrLabelLimit` は恒久的な失敗に分類する。**`dpf-go` の型が戻り値に現れないこと**を確かめる → T035
+- [X] T029 [P] `internal/dpf/ratelimit_test.go` に、共通 RoundTripper のテストを書く。**複数のクライアントから送った要求が 1 つのレート制限 (5 req/s, burst 10) と同時実行数 (5) を共有すること**を確認する (D-09) → T036
+- [X] T030 [P] `internal/dpf/client_test.go` に、クライアントのキャッシュのテストを書く。トークンの出所 (namespace, Secret 名, key) が同じなら同じクライアントを返し、異なれば別のクライアントを返すこと、いずれも共通の RoundTripper を用いること、**トークンが要求ごとに評価されること** (ローテーション追随) を含める (D-09 / FR-011) → T037
+- [X] T031 [P] `internal/dpf/zone_test.go` に、ゾーン特定のテストを書く。**`ResolvedZone` と一致するゾーンを選ぶこと**、**チャレンジ対象の FQDN と longest match するゾーンが `ResolvedZone` の子ゾーンである場合に、それを選ばないこと**、**`ResolvedZone` が無く親ゾーンだけがある場合に親ゾーンへ読み替えず失敗すること** (`utils.GetZoneFromName` が親ゾーンを返す場合を差し替えで再現する)、`ResolvedFQDN` が `ResolvedZone` の配下に無ければ失敗すること、比較が正規化名で行われること、見つからない場合に `ResolvedZone` と対象 FQDN を含むエラーを返すことを含める (FR-013〜015 / research.md D-18) → T038
+- [X] T032 [P] `internal/dpf/record_test.go` に、**排他を取らない公開レコードの読み出し**のテストを書く。対象名の TXT の RDATA とラベルを返すこと、ラベル・TTL の null を失わないことを含める (D-11 の 2a / FR-084) → T039
+- [X] T033 [P] `internal/dpf/apply_test.go` に、`ZoneApplier` のラップのテストを書く。編集関数が対象以外のレコードをそのまま返すこと、**結果が入力と変わらない場合に `utils.ErrSkipApply` を返し、`PatchZoneAtomicChanges` が呼ばれないこと** (FR-084a)、context が打ち切られている場合は `ErrSkipApply` ではなく `ctx.Err()` を返すこと、**反映の後に解放だけが失敗した場合も失敗として返すこと** (FR-059)、書き込み直前に `domainFilters` を再判定すること (FR-018)、**構成に `utils.WithLocker` を含まないこと** (D-16)、ロックオーナー・TTL 2 分・待機間隔 5 秒で構成されること、**反映の Description が `by cert-manager(<ロックオーナー>)` であり、ロックオーナーが 32 文字のとき 49 文字で上限 80 に収まり切り詰めが起きないこと** (FR-064 / SC-014) を含める。`dpf.RecordsApi` / `ZonesApi` (v0.6.0 の `GetZoneLabels` / `PutZoneLabels` を含む) / `JobsApi` を差し替えて実 API に到達しない (FR-042, FR-043, FR-059〜062, FR-084a) → T040, T041, T068
+- [X] T034 [P] `internal/tokensource/provider_test.go` に、`misc/k8s` の `NewTokenProvider` の組み立てのテストを書く。**namespace・Secret 名・key を明示的に渡すこと**、自前で Secret を読まないこと、トークンの値がエラーに含まれないことを含める (D-09 / FR-006 / FR-012) → T042
+- [X] T035 `internal/dpf/errors.go` を実装する。`dpf-go` の型とエラーを上位へ漏らさない
+- [X] T036 `internal/dpf/ratelimit.go` に、プロセス全体で 1 つの RoundTripper を実装する。レート制限と同時実行数がクライアントのキャッシュごとに分かれないようにする (D-09)
+- [X] T037 `internal/dpf/client.go` に、トークンの出所 (namespace, Secret 名, key) をキーとするクライアントのキャッシュを実装する。共通の RoundTripper を `WithHTTPClient` で注入する
+- [X] T038 [P] `internal/dpf/zone.go` に、`ResolvedZone` と一致するゾーンの特定を実装する。`utils.GetZoneFromName(ctx, cz, ResolvedZone, false)` の結果の名前が `ResolvedZone` と正規化名で一致することを確かめ、一致しなければ失敗させる (research.md D-18)
+- [X] T039 [P] `internal/dpf/record.go` に、排他を取らない公開レコードの読み出しを実装する (D-11 の 2a)
+- [X] T040 `internal/dpf/apply.go` に `utils.ZoneApplier` のラップを実装する。**`PatchZoneAtomicChanges` を直接呼ばない**。`NewZoneApplier(..., WithLockOptions(WithOwner(owner), WithTTL(2*time.Minute)), WithHoldOptions(WithLockWait(5*time.Second)))` の形で構成し、`Apply` に `WithApplyDescription` を渡す。編集関数は変更が不要なら `utils.ErrSkipApply` を返す (D-11 / D-13)
+- [X] T041 `internal/dpf/apply.go` で **`utils.WithLocker` を呼ばない**ことを担保する。既定の排他は 2 者の同時取得をユーザをまたいで防ぐが、差し替えるとその範囲がその仕組みの利用者に狭まる (D-16)
+- [X] T042 `internal/tokensource/provider.go` に、`misc/k8s` の `NewTokenProvider` を要求ごとに組み立てる処理を実装する。namespace は必ず明示的に渡す。自前で Secret を読まない (D-09)
 
 ### solver の受け口と設定
 

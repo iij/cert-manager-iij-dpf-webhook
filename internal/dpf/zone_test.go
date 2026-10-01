@@ -14,8 +14,8 @@ import (
 
 func zoneServer(t *testing.T) *dpftest.Server {
 	return dpftest.New(t,
-		dpftest.StandardZone("zparent", "example.com."),
-		dpftest.StandardZone("zchild", "sub.example.com."),
+		dpftest.StandardZone("zone0000parent", "example.com."),
+		dpftest.StandardZone("zone00000child", "sub.example.com."),
 	)
 }
 
@@ -27,7 +27,7 @@ func TestFindZoneExact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if z.ID != "zchild" || z.Name.String() != "sub.example.com." {
+	if z.ID != "zone00000child" || z.Name.String() != "sub.example.com." {
 		t.Fatalf("zone = %+v", z)
 	}
 }
@@ -41,7 +41,7 @@ func TestFindZoneIgnoresUndelegatedChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if z.ID != "zparent" {
+	if z.ID != "zone0000parent" {
 		t.Fatalf("zone = %+v, want zparent", z)
 	}
 }
@@ -86,11 +86,11 @@ func TestFindZoneRejectsNameOutsideZone(t *testing.T) {
 
 // FR-025: 比較は正規化名で行う (DPF 側の表記が大文字や末尾ドットなしでも一致する)。
 func TestFindZoneCanonicalComparison(t *testing.T) {
-	srv := dpftest.New(t, dpftest.StandardZone("zx", "Example.ORG"))
+	srv := dpftest.New(t, dpftest.StandardZone("zone0000000000", "Example.ORG"))
 	c := newClient(t, srv)
 	z, err := c.FindZone(context.Background(),
 		dnsname.MustParse("example.org."), dnsname.MustParse("_acme-challenge.example.org"))
-	if err != nil || z.ID != "zx" {
+	if err != nil || z.ID != "zone0000000000" {
 		t.Fatalf("zone = %+v, err = %v", z, err)
 	}
 }
