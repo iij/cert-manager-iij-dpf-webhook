@@ -115,21 +115,21 @@ description: "Task list for DPF DNS01 Challenge Solver"
 
 ### solver の受け口と設定
 
-- [ ] T043 [P] `internal/solver/config_test.go` に、solver 設定のパースのテストを書く。既定値 (`endpoint` / `dpf-token` / `token` / `domainFilters` が空)、**未知フィールドの拒否**、`https` 以外の `endpoint` の拒否、既定値へフォールバックせず失敗させること、**`domainFilters` に `*` が含まれる場合に警告が記録されること** (FR-023a) を含める (FR-003〜005) → T046
-- [ ] T044 [P] `internal/solver/options_test.go` に、配備単位の設定の検証テストを書く。**ロックオーナー未設定で起動を中止すること**、33 文字以上と英数字・`.`・`-`・`_` 以外を含む値を拒否すること、猶予・操作期限・ロック TTL が非正なら中止すること、閾値が猶予より短いことを含める (FR-047〜050, FR-080) → T047
+- [X] T043 [P] `internal/solver/config_test.go` に、solver 設定のパースのテストを書く。既定値 (`endpoint` / `dpf-token` / `token` / `domainFilters` が空)、**未知フィールドの拒否**、`https` 以外の `endpoint` の拒否、既定値へフォールバックせず失敗させること、**`domainFilters` に `*` が含まれる場合に警告が記録されること** (FR-023a) を含める (FR-003〜005) → T046
+- [X] T044 [P] `internal/solver/options_test.go` に、配備単位の設定の検証テストを書く。**ロックオーナー未設定で起動を中止すること**、33 文字以上と英数字・`.`・`-`・`_` 以外を含む値を拒否すること、猶予・操作期限・ロック TTL が非正なら中止すること、閾値が猶予より短いことを含める (FR-047〜050, FR-080) → T047
 - [ ] T045 [P] `internal/solver/deadline_test.go` に、操作期限のテストを書く。**既定が 60 秒より長い (5 分) こと**、**操作期限の context が要求の context から派生していないこと** (呼び出し元が打ち切っても処理が続くこと)、**操作期限が DPF への呼び出しまで伝播し、操作期限を越えて書き込みが行われないこと**、期限切れの context ではロックの解放が失敗しうること、その場合に処理の正しさが解放の成否に依存しないことを含める (FR-057, FR-057a, FR-058, FR-059) → T067
-- [ ] T046 `internal/solver/config.go` を実装する。`*` を含む `domainFilters` を受け付けた場合は警告を記録する (FR-023a)
-- [ ] T047 `internal/solver/options.go` を実装する
-- [ ] T048 [P] `internal/version/version_test.go` に、ビルド時に埋め込んだ値 (バージョン・リビジョン) が読み出せ、未設定時に既定の表記になることのテストを書く → T049
-- [ ] T049 `internal/version/version.go` にビルド情報を埋め込む変数を定義する
+- [X] T046 `internal/solver/config.go` を実装する。`*` を含む `domainFilters` を受け付けた場合は警告を記録する (FR-023a)
+- [X] T047 `internal/solver/options.go` を実装する
+- [X] T048 [P] `internal/version/version_test.go` に、ビルド時に埋め込んだ値 (バージョン・リビジョン) が読み出せ、未設定時に既定の表記になることのテストを書く → T049
+- [X] T049 `internal/version/version.go` にビルド情報を埋め込む変数を定義する
 
 ### 可観測性の土台
 
-- [ ] T050 [P] `internal/observability/log_test.go` に、構造化ログのテストを書く。**標準出力への出力が常に有効で、他の出力先の設定で停止しないこと**、ログレベルを設定で変えられることを含める (憲章 原則 V) → T052
-- [ ] T051 [P] `internal/observability/exposed_test.go` に、exposed サーバのテストを書く。8080 で `/healthz` `/readyz` `/metrics` のみを返し、それ以外のパスに応答しないこと、**webhook ポートと同一にならないこと**を含める (D-07 / FR-093) → T053
-- [ ] T052 `internal/observability/log.go` に構造化ログを実装する
-- [ ] T053 `internal/observability/exposed.go` に、8080 で `/healthz` `/readyz` `/metrics` のみを提供する HTTP サーバを実装する
-- [ ] T054 `cmd/webhook/main.go` に `cmd.RunWebhookServer("acme.dns-platform.jp", solver)` の呼び出しのみを書く。テスト対象にしないため最小に保つ (起動時の挙動は T119 で検証)
+- [X] T050 [P] `internal/observability/log_test.go` に、構造化ログのテストを書く。**標準出力への出力が常に有効で、他の出力先の設定で停止しないこと**、ログレベルを設定で変えられることを含める (憲章 原則 V) → T052
+- [X] T051 [P] `internal/observability/exposed_test.go` に、exposed サーバのテストを書く。8080 で `/healthz` `/readyz` `/metrics` のみを返し、それ以外のパスに応答しないこと、**webhook ポートと同一にならないこと**を含める (D-07 / FR-093) → T053
+- [X] T052 `internal/observability/log.go` に構造化ログを実装する
+- [X] T053 `internal/observability/exposed.go` に、8080 で `/healthz` `/readyz` `/metrics` のみを提供する HTTP サーバを実装する
+- [X] T054 `cmd/webhook/main.go` に `cmd.RunWebhookServer("acme.dns-platform.jp", solver)` の呼び出しのみを書く。テスト対象にしないため最小に保つ (起動時の挙動は T119 で検証)
 
 **Checkpoint B**: 土台が揃い、ユーザーストーリーの実装に着手できる
 
