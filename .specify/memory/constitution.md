@@ -1,6 +1,40 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 3.2.0 → 3.3.0 (MINOR)
+
+Bump rationale: 既存の規範を実質的に変更した (egress の既定の制限を緩和し、ポリシーの種類の
+選択と送信元の必須値を加えた)。原則の削除・後方互換性のない再定義はない。原則 VI
+(Default-Deny) は ingress と、値が欠けた場合の導入の失敗によって維持される。緩和の理由:
+本サービスの egress 先 (DPF API) は FQDN でしか安定して表せず、k8s 標準の NetworkPolicy では
+CIDR でしか指定できない。既定で egress を制限すると、利用者の環境 (Cilium の toFQDNs、
+HTTP プロキシの経由など) に合わない規則を既定値として固定することになり、利用者は既定の
+規則を外すか全開放に近い CIDR を書くことになる。利用者が自らの環境に合う egress の規則を
+与える形の方が、実際に得られる制限は狭い。
+
+Modified sections:
+- 技術・配布制約 > セキュリティ: コンテナイメージとチャートの既定拒否:
+  - NetworkPolicy: 利用者の実装に合わせてポリシーの種類を選べること (MUST。一覧は plan)。
+    ingress の送信元を表すのに環境依存の値が要る場合は必須とし、欠落で導入を失敗させること。
+  - egress: 「Kubernetes API server / DPF API / DNS への egress を許可すること」
+    「上に列挙した以外の egress を既定で許可しないこと」を削除し、egress の制限を既定で
+    作らず、利用者が任意の規則で有効にできること (MUST) に改めた。必要な通信を利用者が
+    許可できることと、README への記載を求める。OTLP 用の egress を既定で許可しない規定は維持。
+- 開発ワークフローと品質ゲート: NetworkPolicy の CI 検証を、ingress の限定・egress を
+  作らないこと・必須値の欠落による失敗・利用者の egress 規則の反映に改めた。
+
+Added sections: なし
+Removed sections: なし
+Follow-up TODOs: なし
+
+Dependent artifacts (本コマンドでは変更しない):
+- specs/001-dpf-dns01-solver/plan.md: ポリシーの種類の一覧 (k8s 標準 NetworkPolicy /
+  CiliumNetworkPolicy。既定は k8s 標準) と、送信元の必須値 (k8s 標準では kube-apiserver の
+  CIDR。Cilium では fromEntities: kube-apiserver) を記載する。
+- specs/001-dpf-dns01-solver/tasks.md: T108 / T109 / T114 の記述を本改訂に合わせる。
+
+--- 以下は v3.2.0 時点の記録 ---
+
 Version change: 3.1.0 → 3.2.0 (MINOR)
 
 Bump rationale: 新しい義務を持つ小節を追加した。原則の削除・後方互換性のない再定義はない。
@@ -799,20 +833,25 @@ ClusterIssuer はクラスタ管理者のみが作成できるため、その設
   RBAC はクラスタ管理者による外側の制限であり、要求ごとの判定は本サービスが行う。
 - 上記に伴い `automountServiceAccountToken` は有効となる。専用の ServiceAccount を作成して
   用いること (MUST)。`default` ServiceAccount を用いないこと (MUST NOT)。
-- NetworkPolicy を既定で有効とし、以下の必要な通信のみを明示的に許可すること (MUST)。
+- NetworkPolicy を既定で有効とし、ingress を以下の必要な通信のみに限ること (MUST)。
+  利用者のクラスタが用いる NetworkPolicy の実装に合わせて、ポリシーの種類を選べること (MUST)。
+  選べる種類の一覧は plan で定める。
   - webhook ポートへの ingress を、**kube-apiserver からの接続**に限ること (MUST)。
     cert-manager の namespace を送信元として指定しないこと (MUST NOT)。呼び出しは
     集約層が中継するため、cert-manager の Pod は送信元にならない。
     kube-apiserver がホストネットワーク上で動作するなど、クラスタの構成によっては
-    送信元を NetworkPolicy で表現できない。その場合も ingress を全開放しないこと
-    (MUST NOT)。表現できる範囲で最も狭い規則を既定とし、表現しきれない旨と、
-    その残余をクライアント証明書の検証が担うことを README に記載すること (MUST)。
-  - Kubernetes API server への egress を許可すること (MUST)。トークン取得に必要なため。
-  - DPF API への egress を許可すること (MUST)。
-  - DNS 解決に必要な egress を許可すること (MUST)。
-- OTLP 送出先への egress は、送出先が設定された場合にのみ許可すること (MUST)。
-  OTLP を使わない利用者の NetworkPolicy に、テレメトリ用の穴を既定で開けないこと (MUST NOT)。
-- 上に列挙した以外の egress を既定で許可しないこと (MUST NOT)。
+    送信元をポリシーの種類によって表現できない。その場合も ingress を全開放しないこと
+    (MUST NOT)。送信元を表現するために利用者の環境に依存する値が必要な場合は、その値を
+    必須とし、与えられなければ導入を失敗させること (MUST)。値の欠落を全開放と
+    解釈しないこと (MUST NOT)。表現しきれない旨と、その残余をクライアント証明書の検証が
+    担うことを README に記載すること (MUST)。
+- egress の制限は既定で作らないこと (MUST)。利用者が egress の規則を任意に与えて
+  制限を有効にできる形とすること (MUST)。
+  - egress を制限する利用者が、本サービスが必要とする通信 (Kubernetes API server、
+    DPF API、DNS 解決、および OTLP の送出先を設定した場合はその送出先) を許可できること
+    (MUST)。これらの通信と、HTTP プロキシを経由する場合はプロキシへの通信を README に
+    記載すること (MUST)。
+  - 本サービスの側で、OTLP 用の egress を既定で許可しないこと (MUST NOT)。
 - exposed ポートへの ingress は、probe とスクレイプに必要な送信元に
   限定すること (MUST)。全ての送信元に開放しないこと (MUST NOT)。
 - `/healthz` と `/metrics` は同一ポートで提供されるため、NetworkPolicy で両者を区別できない。
@@ -874,7 +913,9 @@ ClusterIssuer はクラスタ管理者のみが作成できるため、その設
   - トークン取得元の namespace 判定の検証。`AllowAmbientCredentials` が `false` の要求が
     `ResourceNamespace` 以外の Secret を読めないこと、および RBAC 上は読める状態にあっても
     読まないことを、いずれも確認すること (MUST)
-  - チャートが既定で生成する NetworkPolicy が、列挙された通信のみを許可することの検証
+  - チャートが既定で生成する NetworkPolicy が、列挙された ingress のみを許可し、egress の
+    制限を作らないことの検証。送信元を表す必須の値が欠けた場合に導入が失敗することの検証。
+    利用者が egress の規則を与えた場合に、その規則がポリシーに反映されることの検証
   - 配布バイナリの ASLR が有効であることの検証
   - コンテナイメージのビルド、および脆弱性スキャン
   - 依存ライセンスの検査 (許容リスト外の依存がないこと)
@@ -986,4 +1027,4 @@ ACME サーバとの通信を伴う。
   リポジトリルートの `CLAUDE.md` に置き、本文書とは分離すること (MUST)。
   本文書は「何を守るか」を、`CLAUDE.md` は「どう作業するか」を扱う。
 
-**Version**: 3.2.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-30
+**Version**: 3.3.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-10-07
