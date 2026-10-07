@@ -188,19 +188,19 @@ Certificate がそれぞれのトークンで処理されること、および�
 
 ### Tests for User Story 2 ⚠️ 先に書き、失敗を確認する
 
-- [ ] T079 [P] [US2] `test/integration/namespaced_issuer_test.go` に、`AllowAmbientCredentials` が `false` の要求で `ResourceNamespace` の Secret のみを読むことのテストを書く (FR-006) → T084
-- [ ] T080 [P] [US2] `test/integration/namespace_isolation_test.go` に、`tokenSecretRef.namespace` が `ResourceNamespace` 以外を指す場合に**要求を失敗させ、読み替えないこと**のテストを書く (FR-007 / SC-008) → T084
-- [ ] T081 [P] [US2] `test/integration/token_failure_test.go` に、Secret 不在・key 不在・値が空の場合を**恒久的な失敗**として再試行しないこと、到達失敗を**一時的な失敗**として上限付きで再試行すること、分類をログに記録することのテストを書く (FR-008〜010) → T085
-- [ ] T082 [P] [US2] `test/integration/token_rotation_test.go` に、外部でトークンがローテーションされた場合に再起動なしで新しい値が使われることのテストを書く (FR-011) → T085
-- [ ] T083 [P] [US2] `test/integration/chart_rbac_namespaced_test.go` に、対象 namespace を列挙して Role/RoleBinding のみで構成できること、ClusterIssuer を使わない構成で ClusterIssuer 用の既定 namespace に権限を付与しないことの検証を書く (D-08) → T086
+- [X] T079 [P] [US2] `test/integration/namespaced_issuer_test.go` に、`AllowAmbientCredentials` が `false` の要求で `ResourceNamespace` の Secret のみを読むことのテストを書く (FR-006) → T084
+- [X] T080 [P] [US2] `test/integration/namespace_isolation_test.go` に、`tokenSecretRef.namespace` が `ResourceNamespace` 以外を指す場合に**要求を失敗させ、読み替えないこと**のテストを書く (FR-007 / SC-008) → T084
+- [X] T081 [P] [US2] `test/integration/token_failure_test.go` に、Secret 不在・key 不在・値が空の場合を**恒久的な失敗**として再試行しないこと、到達失敗を**一時的な失敗**として上限付きで再試行すること、分類をログに記録することのテストを書く (FR-008〜010) → T085
+- [X] T082 [P] [US2] `test/integration/token_rotation_test.go` に、外部でトークンがローテーションされた場合に再起動なしで新しい値が使われることのテストを書く (FR-011) → T085
+- [X] T083 [P] [US2] `test/integration/chart_rbac_namespaced_test.go` に、対象 namespace を列挙して Role/RoleBinding のみで構成できること、ClusterIssuer を使わない構成で ClusterIssuer 用の既定 namespace に権限を付与しないことの検証を書く (D-08) → T086
 
 ### Implementation for User Story 2
 
-- [ ] T084 [US2] `internal/solver/config.go` に `AllowAmbientCredentials` による取得元 namespace の決定を実装する。`false` で他 namespace が指定された場合は失敗させ、`ResourceNamespace` へ読み替えない (FR-006〜007)
-- [ ] T085 [US2] `internal/tokensource/provider.go` に恒久的／一時的な失敗の分類を実装する。`misc/k8s` のエラー型で判別する (D-09 / FR-008〜010)
-- [ ] T086 [US2] `deploy/chart/templates/rbac.yaml` に、対象 namespace を列挙して Role/RoleBinding のみで構成できる形を追加する。ClusterRole による全 namespace への付与を唯一の選択肢としない (D-08)
-- [ ] T087 [US2] `test/e2e/us2_namespaced_test.go` に、2 つの namespace を用いた実環境検証を書く
-- [ ] T088 [US2] `CHANGELOG.md` の `Unreleased` に US2 が加えた利用者に見える挙動を記録する。`AllowAmbientCredentials` による取得元 namespace の決定、`tokenSecretRef.namespace` の扱い、恒久的／一時的な失敗の分類、namespace を列挙した RBAC の構成が対象
+- [X] T084 [US2] `internal/solver/config.go` に `AllowAmbientCredentials` による取得元 namespace の決定を実装する。`false` で他 namespace が指定された場合は失敗させ、`ResourceNamespace` へ読み替えない (FR-006〜007)
+- [X] T085 [US2] `internal/tokensource/provider.go` に恒久的／一時的な失敗の分類を実装する。`misc/k8s` のエラー型で判別する (D-09 / FR-008〜010)
+- [X] T086 [US2] `deploy/chart/templates/rbac.yaml` に、対象 namespace を列挙して Role/RoleBinding のみで構成できる形を追加する。ClusterRole による全 namespace への付与を唯一の選択肢としない (D-08)
+- [ ] T087 [US2] `test/e2e/us2_namespaced_test.go` に、2 つの namespace を用いた実環境検証を書く。**(実装時の注記)** クラスタの検証は、`tokenSecrets.namespaces` に `E2E_US2_NAMESPACES` (既定 `e2e-team-a,e2e-team-b`) を与えてチャートを導入し、その namespace を作っておく必要がある (T124)
+- [X] T088 [US2] `CHANGELOG.md` の `Unreleased` に US2 が加えた利用者に見える挙動を記録する。`AllowAmbientCredentials` による取得元 namespace の決定、`tokenSecretRef.namespace` の扱い、恒久的／一時的な失敗の分類、namespace を列挙した RBAC の構成が対象
 
 **Checkpoint D**: US1 と US2 が独立に成立する
 
