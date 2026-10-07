@@ -34,7 +34,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- range $k, $v := dict "DPF_WEBHOOK_LOG_LEVEL" .Values.logLevel "DPF_WEBHOOK_EXPIRE_GRACE" .Values.expireGrace "DPF_WEBHOOK_EXPIRE_THRESHOLD" .Values.expireThreshold "DPF_WEBHOOK_OPERATION_DEADLINE" .Values.operationDeadline "DPF_WEBHOOK_LOCK_TTL" .Values.lockTTL "DPF_WEBHOOK_LOCK_WAIT" .Values.lockWait }}
+            {{- range $k, $v := dict "DPF_WEBHOOK_LOG_LEVEL" .Values.logLevel "DPF_WEBHOOK_EXPIRE_GRACE" .Values.expireGrace "DPF_WEBHOOK_EXPIRE_THRESHOLD" .Values.expireThreshold "DPF_WEBHOOK_OPERATION_DEADLINE" .Values.operationDeadline "DPF_WEBHOOK_LOCK_TTL" .Values.lockTTL "DPF_WEBHOOK_LOCK_WAIT" .Values.lockWait "OTEL_EXPORTER_OTLP_ENDPOINT" .Values.otlp.endpoint "OTEL_EXPORTER_OTLP_PROTOCOL" .Values.otlp.protocol }}
             {{- if $v }}
             - name: {{ $k }}
               value: {{ $v | quote }}

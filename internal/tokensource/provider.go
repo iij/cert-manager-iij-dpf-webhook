@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/iij/dpf-go/misc/k8s"
+
+	"github.com/iij/cert-manager-iij-dpf-webhook/internal/observability"
 )
 
 // ErrNamespaceRequired は namespace が空の場合に返される。
@@ -82,9 +84,13 @@ func (f *Factory) Provider(namespace, name, key string) (func(context.Context) (
 	if err != nil {
 		return nil, err
 	}
+	// Kubernetes API へ送る要求の内容を記録する (FR-088a)。Secret の値は記録しない。
+	path := "/api/v1/namespaces/" + namespace + "/secrets/" + name
 	return func(ctx context.Context) (string, error) {
+		log := observability.Logger(ctx)
 		var err error
 		for attempt := 1; ; attempt++ {
+			log.Info("Kubernetes API request", "method", "GET", "path", path, "key", key, "attempt", attempt)
 			var token string
 			token, err = read(ctx)
 			if err == nil {
@@ -93,6 +99,8 @@ func (f *Factory) Provider(namespace, name, key string) (func(context.Context) (
 			if IsPermanent(err) || attempt >= f.maxAttempts {
 				return "", err
 			}
+			log.Warn("Kubernetes API request failed; retrying", "method", "GET", "path", path,
+				"attempt", attempt, "failure", "temporary", "error", err)
 			if !sleep(ctx, f.backoff) {
 				return "", err
 			}

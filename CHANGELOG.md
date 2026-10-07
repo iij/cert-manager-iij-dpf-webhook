@@ -46,6 +46,30 @@
   再試行しない。Kubernetes API への到達失敗などは一時的な失敗とし、1 回の読み出しにつき
   3 回まで試行する。分類はログの `failure` (`permanent` / `temporary`) に記録する
 - トークンは要求のたびに Secret から読む。ローテーションや Secret の作成・修正は再起動なしに反映される
+- ログ (JSON、標準出力。レベルは `DPF_WEBHOOK_LOG_LEVEL`)。要求ごとに `uid`・`action`・`fqdn`・
+  `resolvedZone` を付ける。主な記録:
+  - `DPF API request`: DPF へ送った要求 (`method`・`path`・`zoneID`・`query`・`body`)。ゾーン全体の
+    一括置換は本文の代わりに送ったレコードの総数 (`records`) を記録する
+  - `DPF API error response`: DPF のエラー応答 (`status` と本文の全文。`request_id` を含む)
+  - `Kubernetes API request`: トークンの Secret の取得 (`method`・`path`・`key`)
+  - `zone lock acquired` / `zone lock released`: ゾーンロックの取得と解放
+  - `DNS record change`: 変更操作 (`zone`・`name`・`operation` (create / update / delete)・加除した
+    RDATA とラベル・`records`・`description`・`result`)
+  - `challenge failed`: 失敗と分類 (`failure`: permanent / temporary)。ラベル上限への到達は
+    `record label limit reached` を併せて記録する
+  - トークンの値は記録しない。DPF の応答などに現れた場合は `[REDACTED]` に置き換える
+- cert-manager へ返すエラー (Challenge の status に表示される) には、DPF のエラー応答の本文と
+  送った要求の内容を含めない。全文はログに残す (`uid` で対応づける)
+- メトリクス (`/metrics` の Prometheus 形式と OTLP): `dpf_webhook_challenge_requests_total` (要求) と
+  `dpf_webhook_dns_record_changes_total` (ゾーンへの反映を要した変更操作)。ラベルは `action`
+  (present / cleanup) と `result` (success / failure) のみで、ゾーン名・レコード名・値を含めない
+- トレース (OTLP): 要求ごとの span (`iij-dpf.present` / `iij-dpf.cleanup`) と、その子として DPF の
+  呼び出しごとの span (`dpf <メソッド>`)。属性にゾーン名・レコード名・値を含めない
+- OTLP 送出 (ログ・メトリクス・トレース。gRPC と HTTP)。**既定で無効**であり、
+  `OTEL_EXPORTER_OTLP_ENDPOINT` (または信号ごとの `OTEL_EXPORTER_OTLP_<TRACES|METRICS|LOGS>_ENDPOINT`)
+  を与えた場合にのみ送出する。方式は `OTEL_EXPORTER_OTLP_PROTOCOL` (`grpc` / `http/protobuf`。
+  省略時 `http/protobuf`)。送出先の TLS 証明書は検証する。送出の失敗は `telemetry export failed`
+  として標準出力へ記録し、処理は続ける。チャートでは `otlp.endpoint` / `otlp.protocol` で与える
 
 ### Notes
 

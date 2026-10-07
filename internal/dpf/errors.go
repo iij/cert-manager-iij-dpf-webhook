@@ -74,6 +74,20 @@ func newError(kind Kind, reason error, format string, args ...any) *Error {
 	return &Error{Kind: kind, Reason: reason, Detail: fmt.Sprintf(format, args...)}
 }
 
+// Public は err を、webhook の応答に載せてよい形にして返す。
+//
+// cert-manager は solver が返したエラーの文字列を webhook の HTTP 応答 (Challenge の status) に
+// 載せる。DPF のエラー応答の本文と、送った要求の内容 (FR-088 / FR-088a の記録) はログとエラーの
+// 記録に限り、応答には載せない (FR-088b)。ErrAPI と ErrUnavailable の Detail がこれにあたる。
+// 分類と理由は保つため、errors.Is と IsPermanent の結果は変わらない。
+func Public(err error) error {
+	var e *Error
+	if errors.As(err, &e) && (errors.Is(e.Reason, ErrAPI) || errors.Is(e.Reason, ErrUnavailable)) {
+		return &Error{Kind: e.Kind, Reason: e.Reason, Detail: "see the webhook log for the request and the response"}
+	}
+	return err
+}
+
 // IsPermanent は err が恒久的な失敗かを返す。
 func IsPermanent(err error) bool {
 	var e *Error

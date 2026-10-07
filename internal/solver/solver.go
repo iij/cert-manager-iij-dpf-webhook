@@ -15,12 +15,18 @@ import (
 
 	whapi "github.com/cert-manager/cert-manager/pkg/acme/webhook/apis/acme/v1alpha1"
 	"github.com/iij/dpf-go/misc/k8s"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/trace"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/challenge"
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/dnsname"
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/dpf"
+	"github.com/iij/cert-manager-iij-dpf-webhook/internal/observability"
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/tokensource"
 )
 
@@ -40,31 +46,53 @@ type Solver struct {
 	transport http.RoundTripper
 	clients   *dpf.Clients
 	ready     atomic.Bool
+	tracer    trace.Tracer
+	metrics   *observability.Metrics
 
 	// defaultEndpoint は solver 設定の endpoint を省略したときの接続先である (テストで差し替える)。
 	defaultEndpoint string
 }
 
-// New は Solver を作る。DPF クライアントは Initialize で Kubernetes の資格情報を得てから作る。
-func New(o Options, log *slog.Logger) *Solver {
-	return &Solver{
-		opts:            o,
-		log:             log,
-		transport:       dpf.NewSharedTransport(nil, dpf.DefaultRateLimit, dpf.DefaultBurst, dpf.DefaultMaxConcurrency),
-		defaultEndpoint: DefaultEndpoint,
+// Dependency は Solver に与える追加の依存である。
+type Dependency func(*Solver)
+
+// WithTelemetry はトレースとメトリクスの出力先を与える。与えなければ出力しない。
+func WithTelemetry(tp trace.TracerProvider, m *observability.Metrics) Dependency {
+	return func(s *Solver) {
+		s.tracer = tp.Tracer(observability.InstrumentationName)
+		s.metrics = m
 	}
 }
 
+// New は Solver を作る。DPF クライアントは Initialize で Kubernetes の資格情報を得てから作る。
+func New(o Options, log *slog.Logger, deps ...Dependency) *Solver {
+	return newSolver(o, log,
+		dpf.NewSharedTransport(nil, dpf.DefaultRateLimit, dpf.DefaultBurst, dpf.DefaultMaxConcurrency), deps)
+}
+
 // NewWithDependencies は依存を与えて Solver を作る。Initialize を経ずに要求を処理できる。
-func NewWithDependencies(o Options, log *slog.Logger, tokens dpf.TokenProviders, transport http.RoundTripper) *Solver {
+func NewWithDependencies(o Options, log *slog.Logger, tokens dpf.TokenProviders, transport http.RoundTripper,
+	deps ...Dependency,
+) *Solver {
+	s := newSolver(o, log, transport, deps)
+	s.clients = dpf.NewClients(transport, tokens)
+	s.ready.Store(true)
+	return s
+}
+
+func newSolver(o Options, log *slog.Logger, transport http.RoundTripper, deps []Dependency) *Solver {
+	m, _ := observability.NewMetrics(metricnoop.NewMeterProvider()) // noop は失敗しない
 	s := &Solver{
 		opts:            o,
 		log:             log,
 		transport:       transport,
-		clients:         dpf.NewClients(transport, tokens),
+		tracer:          tracenoop.NewTracerProvider().Tracer(observability.InstrumentationName),
+		metrics:         m,
 		defaultEndpoint: DefaultEndpoint,
 	}
-	s.ready.Store(true)
+	for _, d := range deps {
+		d(s)
+	}
 	return s
 }
 
@@ -107,21 +135,43 @@ func (s *Solver) CleanUp(ch *whapi.ChallengeRequest) error {
 //  2. ResolvedZone と一致するゾーンを特定し、domainFilters を判定する
 //  3. 排他を取らずに公開レコードを読み、変更が不要ならここで終える (変更 API は 0 回)
 //  4. 排他の下で読み直し、計画を反映する。書き込む直前に domainFilters を再判定する
+//
+// 要求の受信を span とし、DPF の呼び出しをその子とする (FR-091)。失敗はログに全文を記録し、
+// cert-manager へは dpf.Public で記録を除いたものを返す (FR-088b)。
 func (s *Solver) handle(ch *whapi.ChallengeRequest, action challenge.Action) (err error) {
-	log := s.log.With("uid", string(ch.UID), "action", actionName(action),
+	name := actionName(action)
+	log := s.log.With("uid", string(ch.UID), "action", name,
 		"resourceNamespace", ch.ResourceNamespace, "clusterIssuer", ch.AllowAmbientCredentials,
 		"fqdn", ch.ResolvedFQDN, "resolvedZone", ch.ResolvedZone)
+
+	ctx, cancel := operationContext(s.opts)
+	defer cancel()
+	spanName := observability.SpanPresent
+	if action == challenge.CleanUp {
+		spanName = observability.SpanCleanUp
+	}
+	ctx, span := s.tracer.Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(attribute.String("action", name)))
+	defer span.End()
+	ctx = observability.WithTracer(observability.WithLogger(ctx, log), s.tracer)
+
 	defer func() {
 		if err != nil {
-			log.Error("challenge failed", "failure", failureKind(err), "error", err)
+			kind := failureKind(err)
+			if errors.Is(err, challenge.ErrLabelLimit) {
+				// 猶予が長すぎるか、同一の名前に対する検証の失敗が繰り返されている (FR-087)。
+				log.Warn("record label limit reached", "name", ch.ResolvedFQDN)
+			}
+			log.Error("challenge failed", "failure", kind, "error", err)
+			span.SetAttributes(attribute.String("failure", kind))
+			span.SetStatus(codes.Error, kind)
+			err = dpf.Public(err)
 		}
+		s.metrics.RecordRequest(ctx, name, err)
 	}()
 	if !s.Ready() || s.clients == nil {
 		return ErrNotReady
 	}
-
-	ctx, cancel := operationContext(s.opts)
-	defer cancel()
 
 	cfg, err := parseConfig(ch.Config)
 	if err != nil {
@@ -195,6 +245,9 @@ func (s *Solver) handle(ch *whapi.ChallengeRequest, action challenge.Action) (er
 			r.Now = time.Now()
 			return challenge.Plan(cur, r)
 		})
+	if applied || err != nil {
+		s.metrics.RecordChange(ctx, name, err) // FR-090
+	}
 	if err != nil {
 		return err
 	}

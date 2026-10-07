@@ -1118,6 +1118,23 @@ Go の最小バージョン選択により `client-go` / `apimachinery` は v0.3
 **見直しの契機**: cert-manager が k8s v0.37 系に上がった版を出した場合、または misc/k8s が
 v0.36 系を受け付けるようになった場合は、本決定を見直す。
 
+### D-20: テレメトリの構成 (US3)
+
+**決定**: OpenTelemetry の SDK を用い、次のとおり構成する。
+
+| 項目 | 決定 |
+|---|---|
+| メトリクス | 1 つの `MeterProvider` に、Prometheus 形式の reader (`/metrics`) と OTLP の reader (有効な場合) を付ける。同じ計測を読み手ごとに出力するため、両形式は同一の計測値を表す。計測は `dpf_webhook.challenge.requests` (要求) と `dpf_webhook.dns.record_changes` (ゾーンへの反映を要した変更操作)。属性は `action` と `result` に限る |
+| トレース | 要求の span は solver が要求を受け取った時点に置く。`Present` / `CleanUp` には cert-manager の要求の context が渡されないためである。DPF の呼び出しの span はその子とし、1 つのトレースになる |
+| 大域のトレーサ | **設定しない。**dpf-go は大域のトレーサで HTTP の呼び出しごとに span を作り、属性 `url.full` に問い合わせ文字列 (ゾーン名・レコード名を含む) を載せる。FR-092 に反するため、dpf-go の span は記録させない。本サービスのトレーサは context で DPF の境界へ渡す |
+| 要求・応答の記録 | `internal/dpf` の共通の RoundTripper で行う。dpf-go はその外側で Authorization ヘッダを付けるため、ヘッダは記録せず、その値が本文に現れれば伏せる。エラー応答の本文は伏せたものに置き換えて上位へ返す。一括置換の本文は総数のみとし、差分は `Apply` が記録する |
+| ロックの記録 | dpf-go に取得・解放の通知が無く、ロックの実装も差し替えない (D-16) ため、`Apply` の編集関数が呼ばれた時点 (保持中) と `Apply` から戻った時点で記録する |
+| cert-manager へ返すエラー | cert-manager は solver が返したエラーの文字列を webhook の HTTP 応答 (`Status.Message`) に載せる。DPF のエラー応答の本文と送った要求の内容 (`ErrAPI` / `ErrUnavailable` の詳細) を除いたものを返し、全文はログに残す (FR-088b) |
+| OTLP | 標準の環境変数 (`OTEL_EXPORTER_OTLP_ENDPOINT` / `_PROTOCOL` と信号ごとの指定) で与える。送出先が設定された信号のみ有効にする。方式は `grpc` と `http/protobuf` (省略時) で、それ以外は起動を中止する。TLS の検証は exporter の既定 (有効) に従う。送出の失敗は標準出力のみへ出すロガーに記録する |
+
+**根拠**: 憲章 原則 V と FR-088〜092。Prometheus と OTLP の計測を別々に数えると、両者が
+食い違う余地が生じる。
+
 ## 4. 実環境検証で確認すべきこと
 
 憲章は `main` へのマージ前に実際の DPF に対する検証を要求している。上記の決定のうち、

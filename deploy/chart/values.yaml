@@ -42,6 +42,14 @@ operationDeadline: ""
 lockTTL: ""
 lockWait: ""
 
+# otlp は OpenTelemetry (OTLP) の送出先。既定で無効であり、endpoint を与えた場合にのみ
+# ログ・メトリクス・トレースを送出する。protocol は grpc または http/protobuf (省略時)。
+# 送出先の TLS 証明書は検証する。Prometheus 形式のメトリクス (/metrics) と標準出力のログは
+# これと関係なく常に出力する。
+otlp:
+  endpoint: ""
+  protocol: ""
+
 # securePort はコンテナが webhook を待ち受けるポート。Service は 443 で公開する。
 # 非 root かつ capability を持たないコンテナは 1024 未満を確実には待ち受けられないため
 # 1024 以上とする (research.md D-07)。

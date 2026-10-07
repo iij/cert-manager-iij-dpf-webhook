@@ -65,3 +65,19 @@ func (f *fanout) WithGroup(name string) slog.Handler {
 	}
 	return n
 }
+
+type loggerKey struct{}
+
+// WithLogger は log を運ぶ context を返す。要求ごとの属性 (uid など) を付けたロガーを、
+// DPF や Kubernetes API の呼び出しの記録に引き継ぐために用いる。
+func WithLogger(ctx context.Context, log *slog.Logger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, log)
+}
+
+// Logger は ctx が運ぶロガーを返す。無ければ slog.Default を返す。
+func Logger(ctx context.Context) *slog.Logger {
+	if l, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
+		return l
+	}
+	return slog.Default()
+}

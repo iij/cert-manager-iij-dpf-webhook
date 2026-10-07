@@ -32,7 +32,7 @@ func NewSharedTransport(base http.RoundTripper, limit rate.Limit, burst, maxConc
 		base = http.DefaultTransport
 	}
 	return &sharedTransport{
-		base:    base,
+		base:    &observedTransport{base: base},
 		limiter: rate.NewLimiter(limit, burst),
 		sem:     semaphore.NewWeighted(int64(maxConcurrency)),
 	}

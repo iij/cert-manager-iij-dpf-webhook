@@ -74,12 +74,12 @@ func spanText(sp tracetest.SpanStub) string {
 	var b strings.Builder
 	b.WriteString(sp.Name + " " + sp.Status.Description)
 	for _, a := range sp.Attributes {
-		b.WriteString(" " + string(a.Key) + "=" + a.Value.Emit())
+		b.WriteString(" " + string(a.Key) + "=" + a.Value.String())
 	}
 	for _, e := range sp.Events {
 		b.WriteString(" " + e.Name)
 		for _, a := range e.Attributes {
-			b.WriteString(" " + string(a.Key) + "=" + a.Value.Emit())
+			b.WriteString(" " + string(a.Key) + "=" + a.Value.String())
 		}
 	}
 	return b.String()

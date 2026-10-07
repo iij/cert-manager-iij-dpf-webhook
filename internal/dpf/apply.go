@@ -5,7 +5,9 @@ package dpf
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"maps"
+	"slices"
 	"time"
 
 	sdk "github.com/iij/dpf-go"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/challenge"
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/dnsname"
+	"github.com/iij/cert-manager-iij-dpf-webhook/internal/observability"
 )
 
 const (
@@ -60,9 +63,16 @@ func (c *Client) Apply(ctx context.Context, zone Zone, fqdn dnsname.Name, o Appl
 		utils.WithHoldOptions(utils.WithLockWait(o.LockWait)),
 	)
 
+	log := observability.Logger(ctx).With("zone", zone.Name.String(), "zoneID", zone.ID, "owner", o.Owner)
 	var ownErr error
-	applied := false
+	applied, locked := false, false
+	var change []any // 加除の差分 (FR-088a / FR-089)
 	edit := func(ctx context.Context, records []sdk.OverwriteRecordsInner) ([]sdk.OverwriteRecordsInner, error) {
+		// edit はゾーンロックの保持中にのみ呼ばれる (FR-065)。
+		if !locked {
+			locked = true
+			log.Info("zone lock acquired")
+		}
 		idx := -1
 		for i := range records {
 			if records[i].Rrtype == sdk.RECORDSRRTYPE_TXT && sameName(records[i].Name, fqdn) {
@@ -90,20 +100,81 @@ func (c *Client) Apply(ctx context.Context, zone Zone, fqdn dnsname.Name, o Appl
 			return nil, err
 		}
 		applied = true
-		return replaceChallenge(records, idx, fqdn, res), nil
+		out := replaceChallenge(records, idx, fqdn, res)
+		change = diff(cur, res.Record, idx < 0)
+		change = append(change, "name", fqdn.String(), "records", len(out))
+		return out, nil
 	}
 
 	err := applier.Apply(ctx, edit, utils.WithApplyDescription(Description(o.Owner)))
+	if errors.Is(err, utils.ErrSkipApply) {
+		err = nil
+	}
+	if locked {
+		if err == nil {
+			log.Info("zone lock released")
+		} else {
+			log.Warn("zone lock released or left to expire by its TTL after a failure", "error", err)
+		}
+	}
 	if ownErr != nil {
 		return false, ownErr
 	}
 	if err != nil {
-		if errors.Is(err, utils.ErrSkipApply) {
-			return false, nil
-		}
-		return applied, Convert(err)
+		err = Convert(err)
 	}
-	return applied, nil
+	if change != nil {
+		result, level := "success", slog.LevelInfo
+		if err != nil {
+			result, level = "failure", slog.LevelWarn
+		}
+		log.Log(ctx, level, "DNS record change",
+			append(change, "description", Description(o.Owner), "result", result)...)
+	}
+	return applied && err == nil, err
+}
+
+// diff は対象名の TXT の変更を、操作種別と加除した RDATA・ラベルで表す。
+func diff(before *challenge.Record, after *challenge.Record, created bool) []any {
+	op := "update"
+	switch {
+	case created:
+		op = "create"
+	case after == nil:
+		op = "delete"
+	}
+	var bv, av []string
+	bl, al := map[string]string{}, map[string]string{}
+	if before != nil {
+		bv, bl = before.Values, before.Labels
+	}
+	if after != nil {
+		av, al = after.Values, after.Labels
+	}
+	return []any{"operation", op,
+		"addedRdata", minus(av, bv), "removedRdata", minus(bv, av),
+		"addedLabels", labelDiff(al, bl), "removedLabels", labelDiff(bl, al)}
+}
+
+func minus(a, b []string) []string {
+	out := []string{}
+	for _, v := range a {
+		if !slices.Contains(b, v) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// labelDiff は a にあって b に無い、または値の異なるラベルを "key=value" で返す。
+func labelDiff(a, b map[string]string) []string {
+	out := []string{}
+	for _, k := range slices.Sorted(maps.Keys(a)) {
+		if bv, ok := b[k]; !ok || bv != a[k] {
+			out = append(out, k+"="+a[k])
+		}
+	}
+	return out
 }
 
 // replaceChallenge は対象名の TXT を計画の結果に置き換えた一覧を返す。

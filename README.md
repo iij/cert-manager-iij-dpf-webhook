@@ -140,6 +140,32 @@ namespace を `tokenSecrets.namespaces` に加えてください。
 - 1 回の処理が kube-apiserver の要求のタイムアウト (60 秒) を越えることがあります。その場合も
   処理は続き、cert-manager の再試行で完了します (操作期限の既定は 5 分)。
 
+## 障害の切り分け
+
+証明書が発行されない場合は、Challenge の status に表示される理由と、本サービスの Pod のログを
+確認してください。Challenge の status には DPF の応答の本文を載せません。ログの `uid` で
+対応づけて全文を確認します。
+
+```bash
+kubectl -n cert-manager logs deploy/dpf-webhook | grep '"challenge failed"'
+```
+
+| ログに現れるもの | 原因 |
+|---|---|
+| `token secret not found` / `token key not found in secret` / `token secret value is empty` | トークンの Secret の名前・キー・値 (`failure` は `permanent`) |
+| `DPF API error response` (`"status":401` など) | トークンが無効、または DPF が要求を拒否した (本文の全文と `request_id` が残る) |
+| `delegated zone (ResolvedZone) not found in DPF` | `resolvedZone` のゾーンが DPF に無い |
+| `zone is not allowed by domainFilters` | `domainFilters` がゾーンを許していない |
+| `DPF API request failed` / `DPF API is unavailable` | DPF に到達できない (`failure` は `temporary`) |
+
+DPF へ送った要求 (`DPF API request`) と変更操作 (`DNS record change`) も記録します。トークンは
+記録しません。
+
+メトリクスは `:8080/metrics` で公開します (`dpf_webhook_challenge_requests_total`、
+`dpf_webhook_dns_record_changes_total`)。OTLP によるログ・メトリクス・トレースの送出は既定で
+無効です。送出する場合は `--set otlp.endpoint=https://otel-collector:4318` のように送出先を与えて
+ください (`otlp.protocol` は `grpc` または `http/protobuf`)。
+
 ## 開発
 
 ```bash
