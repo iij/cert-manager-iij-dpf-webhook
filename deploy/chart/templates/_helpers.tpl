@@ -1,6 +1,11 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* リリース名が dpf-webhook を含めば重ねない (例: リリース dpf-webhook → dpf-webhook)。 */}}
 {{- define "webhook.fullname" -}}
+{{- if contains "dpf-webhook" .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
 {{- printf "%s-%s" .Release.Name "dpf-webhook" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "webhook.labels" -}}

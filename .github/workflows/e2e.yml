@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 実環境での検証 (憲章「実環境での検証」/ tasks.md T119, T124)。
+# 実行ごとに kind のクラスタを作り、cert-manager v1.21.2 と、同じ実行で作ったイメージを用いた
+# 本チャートを導入する。検証用ゾーンを共有するため並列に実行せず、後続の実行を待たせる。
+# 証明書の取得まで確かめる e2e の ACME サーバは test/e2e/acmeserver が決める (既定はステージング
+# 環境)。本番環境の値を本ファイルに置かない。
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-dpf-test-zone
+  cancel-in-progress: false
+
+env:
+  HELM_VERSION: v4.2.2
+  CERT_MANAGER_VERSION: v1.21.2
+  IMAGE: cert-manager-iij-dpf-webhook:e2e
+  US2_NAMESPACES: e2e-team-a,e2e-team-b
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: イメージのビルド
+        run: make image IMAGE="$IMAGE" REVISION="${GITHUB_SHA}"
+
+      - name: 起動時の挙動 - 必須設定の不足で異常終了する
+        run: |
+          set +e
+          out="$(docker run --rm "$IMAGE" 2>&1)"
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -ne 0
+          grep -q 'DPF_WEBHOOK_LOCK_OWNER is required' <<<"$out"
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: e2e
+
+      - name: cert-manager の導入
+        run: |
+          helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+            --version "$CERT_MANAGER_VERSION" --namespace cert-manager --create-namespace \
+            --set crds.enabled=true --wait
+
+      - name: 本チャートの導入
+        env:
+          DPF_API_TOKEN: ${{ secrets.DPF_API_TOKEN }}
+        run: |
+          kind load docker-image "$IMAGE" --name e2e
+          for ns in ${US2_NAMESPACES//,/ }; do kubectl create namespace "$ns"; done
+          kubectl -n cert-manager create secret generic dpf-token --from-literal=token="$DPF_API_TOKEN"
+          # kind の kube-apiserver はコントロールプレーンのノード上でホストネットワークで動く。
+          apiserver="$(docker inspect e2e-control-plane --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
+          helm install dpf-webhook ./deploy/chart --namespace cert-manager \
+            --set lockOwner="e2e-${GITHUB_RUN_ID}" \
+            --set image.repository="${IMAGE%%:*}" --set image.tag="${IMAGE##*:}" --set image.pullPolicy=Never \
+            --set "networkPolicy.kubeAPIServerCIDRs={${apiserver}/32}" \
+            --set "tokenSecrets.namespaces={${US2_NAMESPACES}}" \
+            --wait --timeout 5m
+          kubectl wait apiservice/v1alpha1.acme.dns-platform.jp --for=condition=Available --timeout=5m
+
+      - name: 起動時の挙動 - webhook は平文で待ち受けない
+        run: |
+          kubectl -n cert-manager port-forward deploy/dpf-webhook 10443:10443 >/dev/null 2>&1 &
+          sleep 5
+          body="$(curl -sS --max-time 10 http://127.0.0.1:10443/ || true)"
+          echo "$body"
+          # TLS の待ち受けに平文で接続すると、Go の TLS サーバは要求を処理せずこの応答を返す。
+          grep -q 'HTTP request to an HTTPS server' <<<"$body"
+
+      - name: 実環境の検証 (直列に実行する)
+        env:
+          DPF_API_TOKEN: ${{ secrets.DPF_API_TOKEN }}
+          DPF_API_TOKEN_2: ${{ secrets.DPF_API_TOKEN_2 }}
+          DPF_TEST_ZONE: ${{ vars.DPF_TEST_ZONE }}
+          DPF_API_ENDPOINT: ${{ vars.DPF_API_ENDPOINT }}
+          E2E_CLUSTER: "1"
+          E2E_US2_NAMESPACES: ${{ env.US2_NAMESPACES }}
+        run: go test -tags e2e -p 1 -count=1 -timeout 80m -v ./test/e2e/
+
+      - name: 失敗時の記録
+        if: failure()
+        run: |
+          kubectl -n cert-manager logs deploy/dpf-webhook --tail=500 || true
+          kubectl get challenges,orders,certificates -A || true

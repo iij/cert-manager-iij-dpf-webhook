@@ -42,6 +42,8 @@
   バイナリは ASLR を有効にした静的な実行ファイル (C ライブラリ musl を静的にリンク)。CA 証明書を
   バイナリに備える。`/licenses/` に本体 (`LICENSE` / `NOTICE`) と依存のライセンス本文を置く。
   SBOM と provenance をレジストリの referrers として紐づける。UID 65532 で実行する
+- Helm チャートのリソース名は `<リリース名>-dpf-webhook`。リリース名が `dpf-webhook` を含む場合は
+  リリース名をそのまま用いる (例: リリース `dpf-webhook` の Deployment は `dpf-webhook`)
 - Helm チャートの NetworkPolicy: 既定で作り、ingress を webhook ポートは kube-apiserver から、
   exposed ポートは `networkPolicy.exposedFrom` からに限る。egress は既定で制限せず、
   `networkPolicy.egress` に規則を与えた場合にのみその規則に限る。`networkPolicy.type` で
