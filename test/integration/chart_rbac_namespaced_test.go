@@ -77,7 +77,7 @@ func TestChartRBACNamespaced(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			docs, err := renderChart(t, append([]string{"lockOwner=cluster-a"}, c.sets...)...)
+			docs, err := renderChart(t, append([]string{"lockOwner=cluster-a", apiServerCIDR}, c.sets...)...)
 			if err != nil {
 				t.Fatal(err)
 			}

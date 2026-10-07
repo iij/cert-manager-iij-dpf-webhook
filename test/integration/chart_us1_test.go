@@ -14,7 +14,10 @@ import (
 
 const chartPath = "../../deploy/chart"
 
-// renderChart は helm template の出力をリソースの一覧にする。helm が無い場合、CI では失敗し、
+// apiServerCIDR は k8s 標準の NetworkPolicy に必須の kube-apiserver の CIDR である。
+const apiServerCIDR = "networkPolicy.kubeAPIServerCIDRs={10.0.0.1/32}"
+
+// renderChart は helm template の出力をリソースの一覧にする。"json:" で始まる値は --set-json で渡す。helm が無い場合、CI では失敗し、
 // 手元ではスキップする。
 func renderChart(t *testing.T, sets ...string) ([]map[string]any, error) {
 	t.Helper()
@@ -27,6 +30,10 @@ func renderChart(t *testing.T, sets ...string) ([]map[string]any, error) {
 	}
 	args := []string{"template", "test", chartPath, "--namespace", "cert-manager"}
 	for _, s := range sets {
+		if v, ok := strings.CutPrefix(s, "json:"); ok {
+			args = append(args, "--set-json", v)
+			continue
+		}
 		args = append(args, "--set", s)
 	}
 	var stderr bytes.Buffer
@@ -76,13 +83,13 @@ func byKind(docs []map[string]any, kind string) []map[string]any {
 
 // 既定は拒否側: ロックオーナーを与えなければ描画できない (FR-050)。
 func TestChartRequiresLockOwner(t *testing.T) {
-	if _, err := renderChart(t); err == nil || !strings.Contains(err.Error(), "lockOwner") {
+	if _, err := renderChart(t, apiServerCIDR); err == nil || !strings.Contains(err.Error(), "lockOwner") {
 		t.Fatalf("rendering without lockOwner: %v", err)
 	}
 }
 
 func TestChartUS1(t *testing.T) {
-	docs, err := renderChart(t, "lockOwner=cluster-a")
+	docs, err := renderChart(t, "lockOwner=cluster-a", apiServerCIDR)
 	if err != nil {
 		t.Fatal(err)
 	}

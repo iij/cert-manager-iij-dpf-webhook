@@ -27,7 +27,7 @@ func containerEnv(t *testing.T, docs []map[string]any) map[string]string {
 
 // 原則 V / VI: OTLP 送出は既定で無効。送出先を与えた場合のみ OTEL_EXPORTER_OTLP_* を渡す。
 func TestChartOTLP(t *testing.T) {
-	docs, err := renderChart(t, "lockOwner=cluster-a")
+	docs, err := renderChart(t, "lockOwner=cluster-a", apiServerCIDR)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestChartOTLP(t *testing.T) {
 		}
 	}
 
-	docs, err = renderChart(t, "lockOwner=cluster-a", "otlp.endpoint=https://otel.example:4317", "otlp.protocol=grpc")
+	docs, err = renderChart(t, "lockOwner=cluster-a", apiServerCIDR, "otlp.endpoint=https://otel.example:4317", "otlp.protocol=grpc")
 	if err != nil {
 		t.Fatal(err)
 	}
