@@ -2,6 +2,10 @@
 
 # cert-manager-iij-dpf-webhook
 
+> [!IMPORTANT]
+> 本プログラムは IIJ DNSプラットフォームサービスのサポート対象外です。
+> バグ報告や機能追加の要望は、サポートセンターではなく GitHub の Issue へお願いします。
+
 [cert-manager](https://cert-manager.io/) の DNS01 solver です。IIJ DNSプラットフォームサービス
 (DPF) で管理しているドメインの証明書を、ACME の DNS-01 チャレンジで取得できるようにします。
 Kubernetes の APIService (集約 API サーバ) として動作し、kube-apiserver の集約層から呼ばれます。
