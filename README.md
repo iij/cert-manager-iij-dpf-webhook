@@ -35,12 +35,15 @@ kubectl -n cert-manager create secret generic dpf-token --from-file=token=./toke
 クラスタを区別できる値にしてください (1〜32 文字、英数字と `.` `-` `_`)。
 
 ```bash
-helm install dpf-webhook ./deploy/chart \
+helm install dpf-webhook oci://ghcr.io/iij/charts/cert-manager-iij-dpf-webhook \
+  --version <バージョン> \
   --namespace cert-manager \
   --set lockOwner=cluster-a \
-  --set 'networkPolicy.kubeAPIServerCIDRs={192.0.2.10/32,192.0.2.11/32}' \
-  --set image.tag=<バージョン>
+  --set 'networkPolicy.kubeAPIServerCIDRs={192.0.2.10/32,192.0.2.11/32}'
 ```
+
+`<バージョン>` はリリースの版 (例: `0.1.0`) です。イメージ
+(`ghcr.io/iij/cert-manager-iij-dpf-webhook`) はチャートと同じ版のものが用いられます。
 
 `networkPolicy.kubeAPIServerCIDRs` は必須です。webhook ポートへの接続を kube-apiserver からに限る
 ために用います ([NetworkPolicy](#networkpolicy) を参照)。Cilium を使っている場合は代わりに
@@ -84,7 +87,8 @@ namespace 限定の Issuer は、**その Issuer と同じ namespace の Secret 
 `tokenSecrets.releaseNamespace=false` とし、本サービスの namespace に権限を与えないでください。
 
 ```bash
-helm upgrade --install dpf-webhook ./deploy/chart \
+helm upgrade --install dpf-webhook oci://ghcr.io/iij/charts/cert-manager-iij-dpf-webhook \
+  --version <バージョン> \
   --namespace cert-manager \
   --set lockOwner=cluster-a \
   --set 'networkPolicy.kubeAPIServerCIDRs={192.0.2.10/32,192.0.2.11/32}' \
