@@ -4,6 +4,7 @@
 package testutil
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -46,16 +47,45 @@ func (t *Tokens) Sources() []string {
 // NewSolver は模擬 DPF に向けた Solver を返す。
 func NewSolver(t testing.TB, srv *dpftest.Server, mutate func(*solver.Options)) (*solver.Solver, *Tokens) {
 	t.Helper()
+	tokens := &Tokens{}
+	return NewSolverWith(t, srv, tokens, slog.New(slog.NewTextHandler(io.Discard, nil)), mutate), tokens
+}
+
+// NewSolverWith はトークンの出所とロガーを与えて、模擬 DPF に向けた Solver を返す。
+func NewSolverWith(t testing.TB, srv *dpftest.Server, tokens dpf.TokenProviders, log *slog.Logger,
+	mutate func(*solver.Options)) *solver.Solver {
+	t.Helper()
 	o := solver.DefaultOptions()
 	o.LockOwner = "cluster-a"
 	o.PodNamespace = PodNamespace
 	if mutate != nil {
 		mutate(&o)
 	}
-	tokens := &Tokens{}
-	s := solver.NewWithDependencies(o, slog.New(slog.NewTextHandler(io.Discard, nil)), tokens,
-		dpf.NewSharedTransport(srv.Transport(), 1000, 1000, 10))
-	return s, tokens
+	return solver.NewWithDependencies(o, log, tokens, dpf.NewSharedTransport(srv.Transport(), 1000, 1000, 10))
+}
+
+// LogBuffer はテキスト形式のログを溜める、並行して書き込める出力先である。
+type LogBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *LogBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// String は溜めたログを返す。
+func (b *LogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// Logger は b へ書き出すロガーを返す。
+func (b *LogBuffer) Logger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(b, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
 
 // Config は solver 設定の JSON を返す。endpoint は模擬 DPF を指す。
