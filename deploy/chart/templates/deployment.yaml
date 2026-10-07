@@ -40,6 +40,14 @@ spec:
               value: {{ $v | quote }}
             {{- end }}
             {{- end }}
+            {{- with .Values.proxy.httpsProxy }}
+            - name: HTTPS_PROXY
+              value: {{ . | quote }}
+            - name: NO_PROXY
+              value: {{ printf "$(KUBERNETES_SERVICE_HOST)%s" (ternary (printf ",%s" $.Values.proxy.noProxy) "" (ne $.Values.proxy.noProxy "")) | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           ports:
             - name: https
               containerPort: {{ .Values.securePort }}

@@ -38,8 +38,13 @@ kubectl -n cert-manager create secret generic dpf-token --from-file=token=./toke
 helm install dpf-webhook ./deploy/chart \
   --namespace cert-manager \
   --set lockOwner=cluster-a \
+  --set 'networkPolicy.kubeAPIServerCIDRs={192.0.2.10/32,192.0.2.11/32}' \
   --set image.tag=<バージョン>
 ```
+
+`networkPolicy.kubeAPIServerCIDRs` は必須です。webhook ポートへの接続を kube-apiserver からに限る
+ために用います ([NetworkPolicy](#networkpolicy) を参照)。Cilium を使っている場合は代わりに
+`--set networkPolicy.type=cilium` とすれば、CIDR は不要です。
 
 APIService のサービング証明書は cert-manager で発行し、CA は cert-manager の cainjector が
 APIService へ注入します。CA をイメージやチャートに含めません。
@@ -82,6 +87,7 @@ namespace 限定の Issuer は、**その Issuer と同じ namespace の Secret 
 helm upgrade --install dpf-webhook ./deploy/chart \
   --namespace cert-manager \
   --set lockOwner=cluster-a \
+  --set 'networkPolicy.kubeAPIServerCIDRs={192.0.2.10/32,192.0.2.11/32}' \
   --set 'tokenSecrets.namespaces={team-a,team-b}' \
   --set tokenSecrets.releaseNamespace=false
 ```
@@ -113,6 +119,86 @@ spec:
 
 ClusterIssuer の `tokenSecretRef.namespace` で本サービス以外の namespace を指す場合も、その
 namespace を `tokenSecrets.namespaces` に加えてください。
+
+### NetworkPolicy
+
+本チャートは既定で NetworkPolicy を作り、**ingress** を次に限ります。egress は既定では制限しません。
+
+| ポート | 許す送信元 |
+|---|---|
+| webhook (コンテナの 10443。Service は 443) | kube-apiserver のみ |
+| exposed (8080。`/healthz`・`/readyz`・`/metrics`) | `networkPolicy.exposedFrom` に書いた送信元 (Prometheus など)。Cilium では kubelet の probe (`host`) も |
+
+`networkPolicy.type` で種類を選びます。
+
+- `kubernetes` (既定): `networking.k8s.io/v1` の NetworkPolicy。k8s 標準の NetworkPolicy では
+  kube-apiserver を名前で指定できないため、**`networkPolicy.kubeAPIServerCIDRs` に kube-apiserver の
+  送信元の CIDR を与えてください (必須。無ければ導入に失敗します)。**`kubectl get endpoints
+  kubernetes -n default` に現れるアドレスが手がかりになります。ただし kube-apiserver がホスト
+  ネットワークで動作するクラスタでは、Pod への接続の送信元がノードのアドレスやトンネル
+  インタフェースのアドレスになることがあり、kube-apiserver だけを表す CIDR を書けない場合が
+  あります。その場合は、表せる範囲で最も狭い CIDR (コントロールプレーンのノードのアドレスなど)
+  を与えてください。
+- `cilium`: CiliumNetworkPolicy。kube-apiserver をエンティティ (`kube-apiserver`) で指定するため
+  CIDR は不要です。
+
+NetworkPolicy で表しきれない残りは、クライアント証明書の検証が担います。本サービスは
+kube-apiserver の集約層が提示するクライアント証明書を、クラスタの集約層向け CA
+(`kube-system/extension-apiserver-authentication`) で検証し、それ以外からの要求を拒否します。
+
+#### egress を制限する場合
+
+`networkPolicy.egress` に egress の規則を書くと、egress はその規則に限られます。本サービスが
+必要とする通信をすべて含めてください。
+
+| 宛先 | ポート | 用途 |
+|---|---|---|
+| Kubernetes API server | 443/TCP (クラスタによる) | トークンの Secret の取得、委譲認証 |
+| DPF API (`api.dns-platform.jp`) | 443/TCP | ゾーンの読み書き。プロキシを使う場合はプロキシ |
+| DNS (クラスタの DNS) | 53/UDP・TCP | 名前解決 |
+| OTLP の送出先 | 送出先による | `otlp.endpoint` を設定した場合のみ。プロキシを使う場合はプロキシ |
+
+Cilium では `toFQDNs` で DPF API を名前で指定できます (DNS の規則に Cilium の DNS プロキシの
+設定が要ります)。
+
+```yaml
+networkPolicy:
+  type: cilium
+  egress:
+    - toEntities: [kube-apiserver]
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports: [{port: "53", protocol: ANY}]
+          rules:
+            dns: [{matchPattern: "*"}]
+    - toFQDNs: [{matchName: api.dns-platform.jp}]
+      toPorts:
+        - ports: [{port: "443", protocol: TCP}]
+```
+
+### HTTP プロキシ
+
+DPF API や OTLP の送出先へプロキシを経由して接続する場合は、`proxy.httpsProxy` を与えます。
+`HTTPS_PROXY` と `NO_PROXY` がコンテナへ渡されます。Kubernetes API はプロキシを経由させないため、
+`NO_PROXY` の先頭には常に `$(KUBERNETES_SERVICE_HOST)` が置かれます。egress を制限する場合は、
+DPF API の代わりにプロキシへの egress を許してください。
+
+```yaml
+proxy:
+  httpsProxy: http://proxy.example.jp:3128
+  noProxy: .svc,.cluster.local
+networkPolicy:
+  egress:
+    - to: [{ipBlock: {cidr: 192.0.2.10/32}}]   # Kubernetes API server
+      ports: [{port: 443, protocol: TCP}]
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to: [{ipBlock: {cidr: 198.51.100.20/32}}]   # プロキシ
+      ports: [{port: 3128, protocol: TCP}]
+```
 
 ### solver 設定
 

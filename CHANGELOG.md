@@ -37,6 +37,16 @@
   (非 root・`restricted` を満たす。webhook はコンテナの 10443、healthz / metrics は 8080)、
   Service (443)、RBAC (Secret は `get` のみ、集約 API サーバの委譲認証、cert-manager による
   solver の呼び出し)。トークンの Secret は作らない
+- Helm チャートの NetworkPolicy: 既定で作り、ingress を webhook ポートは kube-apiserver から、
+  exposed ポートは `networkPolicy.exposedFrom` からに限る。egress は既定で制限せず、
+  `networkPolicy.egress` に規則を与えた場合にのみその規則に限る。`networkPolicy.type` で
+  `kubernetes` (既定。`networkPolicy.kubeAPIServerCIDRs` が**必須**で、無ければ導入に失敗する) と
+  `cilium` (CiliumNetworkPolicy。kube-apiserver と kubelet の probe をエンティティで指定) を選ぶ
+- Helm チャートの `proxy.httpsProxy` / `proxy.noProxy`: 与えた場合に `HTTPS_PROXY` / `NO_PROXY`
+  を渡す。`NO_PROXY` の先頭に `$(KUBERNETES_SERVICE_HOST)` を置き、Kubernetes API はプロキシを
+  経由させない
+- Helm チャートの `resources`: CPU・メモリの requests と limits の既定 (requests 50m / 64Mi、
+  limits 500m / 256Mi)
 - Helm チャートの `tokenSecrets`: Secret の `get` を許す namespace を列挙して、namespace ごとの
   Role/RoleBinding のみで構成する。`tokenSecrets.namespaces` (既定 `[]`) に namespace 限定の
   Issuer を置く namespace を、`tokenSecrets.releaseNamespace` (既定 `true`) で本サービスの

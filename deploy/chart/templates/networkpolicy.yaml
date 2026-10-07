@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 到達範囲の制限 (憲章「コンテナイメージとチャートの既定拒否」v3.3.0 / plan.md)。
+# ingress を kube-apiserver (webhook ポート) と probe・スクレイプ (exposed ポート) に限る。
+# egress は既定で制限せず、networkPolicy.egress に規則を与えた場合にのみその規則に限る。
+# NetworkPolicy は多層防御の一層であり、クライアント証明書の検証の代替ではない。
+{{- $np := .Values.networkPolicy }}
+{{- if not (has $np.type (list "kubernetes" "cilium")) }}
+{{- fail (printf "networkPolicy.type must be \"kubernetes\" or \"cilium\": %q" $np.type) }}
+{{- end }}
+{{- if eq $np.type "kubernetes" }}
+{{- if empty $np.kubeAPIServerCIDRs }}
+{{- fail "networkPolicy.kubeAPIServerCIDRs is required with networkPolicy.type=kubernetes: the CIDRs of kube-apiserver, the only allowed source of the webhook port (see README)" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "webhook.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "webhook.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    {{- if $np.egress }}
+    - Egress
+    {{- end }}
+  ingress:
+    # webhook ポート: kube-apiserver の集約層からの接続のみ。
+    - from:
+        {{- range $np.kubeAPIServerCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.securePort }}
+          protocol: TCP
+    {{- with $np.exposedFrom }}
+    # exposed ポート (healthz / metrics): 与えられた送信元のみ。空なら規則を作らない
+    # (送信元の無い規則はすべての送信元を許すため)。
+    - from:
+        {{- toYaml . | nindent 8 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    {{- end }}
+  {{- with $np.egress }}
+  egress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- else }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "webhook.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "webhook.selectorLabels" . | nindent 6 }}
+  ingress:
+    # webhook ポート: kube-apiserver の集約層からの接続のみ。
+    - fromEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: {{ .Values.securePort | quote }}
+              protocol: TCP
+    # exposed ポート: kubelet の probe。
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    {{- range $np.exposedFrom }}
+    # exposed ポート: 与えられた送信元 (Cilium の ingress の規則。toPorts は本チャートが付ける)。
+    - {{- toYaml (merge (dict "toPorts" (list (dict "ports" (list (dict "port" "8080" "protocol" "TCP"))))) .) | nindent 6 }}
+    {{- end }}
+  {{- with $np.egress }}
+  egress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

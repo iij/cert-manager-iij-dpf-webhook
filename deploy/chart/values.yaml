@@ -50,6 +50,39 @@ otlp:
   endpoint: ""
   protocol: ""
 
+# networkPolicy は到達範囲の制限である (README の「NetworkPolicy」を参照)。
+networkPolicy:
+  # type はポリシーの種類。kubernetes (networking.k8s.io/v1 の NetworkPolicy) または
+  # cilium (cilium.io/v2 の CiliumNetworkPolicy)。
+  type: kubernetes
+  # kubeAPIServerCIDRs は kube-apiserver の送信元の CIDR (type=kubernetes では必須)。
+  # webhook ポートへの ingress をこれに限る。cilium では kube-apiserver のエンティティを用いる。
+  kubeAPIServerCIDRs: []
+  # exposedFrom は exposed ポート (healthz / metrics。8080) へのスクレイプなどの送信元である。
+  # kubernetes では NetworkPolicyPeer の一覧、cilium では ingress の規則の一覧 (toPorts は不要)。
+  # 空なら規則を作らない (cilium では kubelet の probe のため host を常に許す)。
+  exposedFrom: []
+  # egress は egress の規則の一覧 (種類に応じた形式。cilium では toFQDNs も書ける)。
+  # 空なら egress を制限しない。与えた場合は、本サービスが必要とする通信 (Kubernetes API
+  # server・DPF API・DNS、OTLP の送出先、プロキシ) をすべて含めること (README を参照)。
+  egress: []
+
+# proxy は HTTP プロキシである。httpsProxy を与えた場合にのみ HTTPS_PROXY / NO_PROXY を渡す。
+# Kubernetes API はプロキシを経由させないため、NO_PROXY の先頭に $(KUBERNETES_SERVICE_HOST) を置く。
+proxy:
+  httpsProxy: ""
+  # noProxy はプロキシを経由しない宛先 (カンマ区切り)。
+  noProxy: ""
+
+# resources は CPU・メモリの requests と limits である。
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
 # securePort はコンテナが webhook を待ち受けるポート。Service は 443 で公開する。
 # 非 root かつ capability を持たないコンテナは 1024 未満を確実には待ち受けられないため
 # 1024 以上とする (research.md D-07)。
