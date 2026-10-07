@@ -80,6 +80,8 @@ type Server struct {
 	FailLabelPutAfterAtomic bool
 	// FailAtomic が true の場合、一括置き換えを 500 で失敗させる。
 	FailAtomic bool
+	// ErrorBody が空でなければ、FailAtomic による失敗の応答本文をこれに置き換え、400 を返す。
+	ErrorBody string
 	// BeforeAtomic は一括置き換えの直前に呼ばれる (ロックの内側)。
 	BeforeAtomic func(s *Server)
 }
@@ -157,6 +159,9 @@ func (s *Server) ensureID(r *Record) {
 		r.Labels = map[string]string{}
 	}
 }
+
+// RequestID は模擬サーバの応答が返す問い合わせ用の識別子である。
+const RequestID = requestID
 
 const requestID = "req00000000000000000000000000001"
 
@@ -277,6 +282,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.BeforeAtomic(s)
 		}
 		s.Atomics++
+		if s.FailAtomic && s.ErrorBody != "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, s.ErrorBody)
+			return
+		}
 		if s.FailAtomic {
 			writeError(w, http.StatusInternalServerError, "SystemError", "", "")
 			return

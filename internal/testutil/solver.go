@@ -53,7 +53,7 @@ func NewSolver(t testing.TB, srv *dpftest.Server, mutate func(*solver.Options)) 
 
 // NewSolverWith はトークンの出所とロガーを与えて、模擬 DPF に向けた Solver を返す。
 func NewSolverWith(t testing.TB, srv *dpftest.Server, tokens dpf.TokenProviders, log *slog.Logger,
-	mutate func(*solver.Options)) *solver.Solver {
+	mutate func(*solver.Options), deps ...solver.Dependency) *solver.Solver {
 	t.Helper()
 	o := solver.DefaultOptions()
 	o.LockOwner = "cluster-a"
@@ -61,7 +61,15 @@ func NewSolverWith(t testing.TB, srv *dpftest.Server, tokens dpf.TokenProviders,
 	if mutate != nil {
 		mutate(&o)
 	}
-	return solver.NewWithDependencies(o, log, tokens, dpf.NewSharedTransport(srv.Transport(), 1000, 1000, 10))
+	return solver.NewWithDependencies(o, log, tokens, dpf.NewSharedTransport(srv.Transport(), 1000, 1000, 10), deps...)
+}
+
+// FixedToken は namespace によらず同じトークンを返す TokenProviders である。
+type FixedToken string
+
+// Provider は固定のトークンを返す関数を返す。
+func (f FixedToken) Provider(_, _, _ string) (func(context.Context) (string, error), error) {
+	return func(context.Context) (string, error) { return string(f), nil }, nil
 }
 
 // LogBuffer はテキスト形式のログを溜める、並行して書き込める出力先である。
