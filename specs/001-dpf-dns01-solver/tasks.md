@@ -216,22 +216,22 @@ Certificate がそれぞれのトークンで処理されること、および�
 
 ### Tests for User Story 3 ⚠️ 先に書き、失敗を確認する
 
-- [ ] T089 [P] [US3] `test/integration/error_logging_test.go` に、DPF のエラー応答が**全文**記録され、問い合わせ用の識別子が失われないことのテストを書く。長さで切り詰めないこと (FR-088) → T096
-- [ ] T090 [P] [US3] `test/integration/request_logging_test.go` に、**DPF および Kubernetes API へ送った要求の内容** (メソッド・パス・ゾーン ID・要求本文) が記録され、**一括置換の要求では本文の代わりに加除の差分 (レコード名・RDATA・ラベル) とレコードの総数が記録され、ゾーン全体のレコードが記録されないこと**、それ以外の要求の本文が切り詰められないこと、**アクセストークンと認証ヘッダが含まれないこと**、記録が webhook の HTTP 応答本文に現れないことのテストを書く (FR-088a / FR-088b) → T096
-- [ ] T091 [P] [US3] `test/integration/secret_redaction_test.go` に、トークンの値がログ・エラーメッセージ・メトリクス・トレース・HTTP 応答本文のいずれにも現れないことのテストを書く。**認証情報の非出力が全文記録に優先すること**を含める (FR-012) → T096
-- [ ] T092 [P] [US3] `test/integration/operation_logging_test.go` に、**ロックの取得・解放と適用した Description の記録** (FR-065)、DNS レコードの変更操作 (対象ゾーン・レコード名・操作種別・結果) の記録 (FR-089)、ゾーンが見つからない場合の `ResolvedZone` と対象 FQDN の記録 (FR-015)、`domainFilters` が空の場合の記録 (FR-019)、**`*` を含む場合の警告** (FR-023a)、ラベル上限到達の記録 (FR-087) のテストを書く → T096
-- [ ] T093 [P] [US3] `internal/observability/metrics_test.go` に、DNS レコードの変更操作の成否と件数が計測できること (FR-090)、**Prometheus 形式と OpenTelemetry 形式が同一の計測値を表すこと**、ゾーン名・レコード名・レコード値が**メトリクスのラベルに既定で含まれない**こと (FR-092) のテストを書く → T097
-- [ ] T094 [P] [US3] `internal/observability/trace_test.go` に、要求の受信から DPF 呼び出しまでが 1 トレースとして追跡できること (FR-091)、ゾーン名・レコード名・レコード値がトレースの属性に既定で含まれないこと (FR-092) のテストを書く → T098
-- [ ] T095 [P] [US3] `internal/observability/otlp_test.go` に、OTLP 送出が**既定で無効**であり送出先が設定された場合のみ有効になること、TLS 証明書の検証が既定で有効であること、**送出失敗で DNS の処理を停止させず、失敗をログに記録すること**のテストを書く (憲章 原則 V) → T099
+- [X] T089 [P] [US3] `test/integration/error_logging_test.go` に、DPF のエラー応答が**全文**記録され、問い合わせ用の識別子が失われないことのテストを書く。長さで切り詰めないこと (FR-088) → T096
+- [X] T090 [P] [US3] `test/integration/request_logging_test.go` に、**DPF および Kubernetes API へ送った要求の内容** (メソッド・パス・ゾーン ID・要求本文) が記録され、**一括置換の要求では本文の代わりに加除の差分 (レコード名・RDATA・ラベル) とレコードの総数が記録され、ゾーン全体のレコードが記録されないこと**、それ以外の要求の本文が切り詰められないこと、**アクセストークンと認証ヘッダが含まれないこと**、記録が webhook の HTTP 応答本文に現れないことのテストを書く (FR-088a / FR-088b) → T096
+- [X] T091 [P] [US3] `test/integration/secret_redaction_test.go` に、トークンの値がログ・エラーメッセージ・メトリクス・トレース・HTTP 応答本文のいずれにも現れないことのテストを書く。**認証情報の非出力が全文記録に優先すること**を含める (FR-012) → T096
+- [X] T092 [P] [US3] `test/integration/operation_logging_test.go` に、**ロックの取得・解放と適用した Description の記録** (FR-065)、DNS レコードの変更操作 (対象ゾーン・レコード名・操作種別・結果) の記録 (FR-089)、ゾーンが見つからない場合の `ResolvedZone` と対象 FQDN の記録 (FR-015)、`domainFilters` が空の場合の記録 (FR-019)、**`*` を含む場合の警告** (FR-023a)、ラベル上限到達の記録 (FR-087) のテストを書く → T096
+- [X] T093 [P] [US3] `internal/observability/metrics_test.go` に、DNS レコードの変更操作の成否と件数が計測できること (FR-090)、**Prometheus 形式と OpenTelemetry 形式が同一の計測値を表すこと**、ゾーン名・レコード名・レコード値が**メトリクスのラベルに既定で含まれない**こと (FR-092) のテストを書く → T097
+- [X] T094 [P] [US3] `internal/observability/trace_test.go` に、要求の受信から DPF 呼び出しまでが 1 トレースとして追跡できること (FR-091)、ゾーン名・レコード名・レコード値がトレースの属性に既定で含まれないこと (FR-092) のテストを書く → T098
+- [X] T095 [P] [US3] `internal/observability/otlp_test.go` に、OTLP 送出が**既定で無効**であり送出先が設定された場合のみ有効になること、TLS 証明書の検証が既定で有効であること、**送出失敗で DNS の処理を停止させず、失敗をログに記録すること**のテストを書く (憲章 原則 V) → T099
 
 ### Implementation for User Story 3
 
-- [ ] T096 [US3] `internal/observability/log.go` と `internal/dpf/` に、エラー応答の全文記録・送った要求の記録・操作の記録・恒久的／一時的な失敗の分類の記録、`domainFilters` の `*` による緩和の警告を実装する。記録は `internal/dpf` の境界で行い、認証情報を伏せる (FR-010 / FR-023a / FR-065 / FR-088 / FR-088a / FR-088b / FR-089)
-- [ ] T097 [P] [US3] `internal/observability/metrics.go` に Prometheus 形式と OpenTelemetry 形式のメトリクスを実装する。両形式が同一の計測値を表すこと (FR-090)
-- [ ] T098 [P] [US3] `internal/observability/trace.go` に OpenTelemetry のトレースを実装する。要求の受信から DPF 呼び出しまでを 1 トレースとする (FR-091)
-- [ ] T099 [US3] `internal/observability/` に OTLP 送出 (ログ・メトリクス・トレース。gRPC と HTTP) を実装する。**既定で無効**とし、送出先が設定された場合にのみ有効化する。TLS 証明書の検証を既定で有効とする。送出失敗で DNS の処理を停止させない
-- [ ] T100 [US3] `test/e2e/us3_diagnosis_test.go` に、5 種類の失敗 (無効なトークン / Secret 不在 / key 不在 / ゾーン不在 / DPF 到達不能) をログのみで判別できることの検証を書く (SC-009)
-- [ ] T101 [US3] `CHANGELOG.md` の `Unreleased` に US3 が加えた利用者に見える挙動を記録する。**ログ・メトリクス・トレースとして出力する項目**と、OTLP 送出が既定で無効であることが対象 (憲章が「利用者に見える挙動」にテレメトリを含めるため)
+- [X] T096 [US3] `internal/observability/log.go` と `internal/dpf/` に、エラー応答の全文記録・送った要求の記録・操作の記録・恒久的／一時的な失敗の分類の記録、`domainFilters` の `*` による緩和の警告を実装する。記録は `internal/dpf` の境界で行い、認証情報を伏せる (FR-010 / FR-023a / FR-065 / FR-088 / FR-088a / FR-088b / FR-089)
+- [X] T097 [P] [US3] `internal/observability/metrics.go` に Prometheus 形式と OpenTelemetry 形式のメトリクスを実装する。両形式が同一の計測値を表すこと (FR-090)
+- [X] T098 [P] [US3] `internal/observability/trace.go` に OpenTelemetry のトレースを実装する。要求の受信から DPF 呼び出しまでを 1 トレースとする (FR-091)
+- [X] T099 [US3] `internal/observability/` に OTLP 送出 (ログ・メトリクス・トレース。gRPC と HTTP) を実装する。**既定で無効**とし、送出先が設定された場合にのみ有効化する。TLS 証明書の検証を既定で有効とする。送出失敗で DNS の処理を停止させない
+- [ ] T100 [US3] `test/e2e/us3_diagnosis_test.go` に、5 種類の失敗 (無効なトークン / Secret 不在 / key 不在 / ゾーン不在 / DPF 到達不能) をログのみで判別できることの検証を書く (SC-009)。**(実装時の注記)** 無効なトークンの目印は DPF が 401 を返すことを前提とする。実環境で応答の状態コードを確かめる
+- [X] T101 [US3] `CHANGELOG.md` の `Unreleased` に US3 が加えた利用者に見える挙動を記録する。**ログ・メトリクス・トレースとして出力する項目**と、OTLP 送出が既定で無効であることが対象 (憲章が「利用者に見える挙動」にテレメトリを含めるため)
 
 **Checkpoint E**: 3 つのストーリーがすべて成立する
 
