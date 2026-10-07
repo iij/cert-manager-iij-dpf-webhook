@@ -12,6 +12,7 @@
 #   - OCI の標準アノテーション (ラベル) が付いており、licenses が Apache-2.0 であること
 #   - 非 root の固定数値 UID で実行されること
 set -euo pipefail
+export LC_ALL=C # readelf などの出力をロケールに依らず照合する
 
 if [[ $# -ne 1 ]]; then
 	echo "usage: $0 <image>" >&2

@@ -12,6 +12,9 @@ import (
 	"os"
 
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook/cmd"
+	// scratch には証明書ストアが無い。DPF API と OTLP の送出先の TLS 検証に用いる CA 証明書を
+	// バイナリに備える (システムの証明書ストアが無い場合にのみ用いられる)。
+	_ "golang.org/x/crypto/x509roots/fallback"
 
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/observability"
 	"github.com/iij/cert-manager-iij-dpf-webhook/internal/solver"

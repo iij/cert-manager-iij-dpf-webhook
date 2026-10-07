@@ -37,6 +37,11 @@
   (非 root・`restricted` を満たす。webhook はコンテナの 10443、healthz / metrics は 8080)、
   Service (443)、RBAC (Secret は `get` のみ、集約 API サーバの委譲認証、cert-manager による
   solver の呼び出し)。トークンの Secret は作らない
+- コンテナイメージ (`ghcr.io/iij/cert-manager-iij-dpf-webhook`) と Helm チャート
+  (`oci://ghcr.io/iij/charts`) をタグ付きリリースごとに公開する。イメージは `scratch` ベースで、
+  バイナリは ASLR を有効にした静的な実行ファイル (C ライブラリ musl を静的にリンク)。CA 証明書を
+  バイナリに備える。`/licenses/` に本体 (`LICENSE` / `NOTICE`) と依存のライセンス本文を置く。
+  SBOM と provenance をレジストリの referrers として紐づける。UID 65532 で実行する
 - Helm チャートの NetworkPolicy: 既定で作り、ingress を webhook ポートは kube-apiserver から、
   exposed ポートは `networkPolicy.exposedFrom` からに限る。egress は既定で制限せず、
   `networkPolicy.egress` に規則を与えた場合にのみその規則に限る。`networkPolicy.type` で

@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# タグ付きリリースごとに OCI イメージと Helm チャートを公開する (憲章「配布」)。
+# SBOM と provenance は、push と同時にイメージの referrers として紐づける。
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  CHART_REPO: oci://ghcr.io/${{ github.repository_owner }}/charts
+  HELM_VERSION: v4.2.2
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: イメージのビルド
+        run: |
+          make image IMAGE="$IMAGE:${GITHUB_REF_NAME}" VERSION="${GITHUB_REF_NAME}" REVISION="${GITHUB_SHA}"
+
+      - name: イメージの検査 (scratch・static-pie・CA・/licenses・アノテーション・非 root)
+        run: make check-image IMAGE="$IMAGE:${GITHUB_REF_NAME}"
+
+      - name: 脆弱性スキャン
+        run: make scan-image IMAGE="$IMAGE:${GITHUB_REF_NAME}"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: push
+        id: push
+        run: |
+          docker push "$IMAGE:${GITHUB_REF_NAME}"
+          digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE:${GITHUB_REF_NAME}")"
+          echo "digest=${digest#*@}" >>"$GITHUB_OUTPUT"
+
+      - name: SBOM の生成
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: SBOM を referrers として紐づける
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      - name: provenance を referrers として紐づける
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  chart:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: チャートの公開
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          helm package deploy/chart --version "$version" --app-version "${GITHUB_REF_NAME}" -d dist
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push "dist/$(ls dist | head -1)" "$CHART_REPO"

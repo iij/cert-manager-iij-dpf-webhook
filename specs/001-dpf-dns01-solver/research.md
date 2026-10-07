@@ -1138,6 +1138,26 @@ v0.36 系を受け付けるようになった場合は、本決定を見直す�
 **根拠**: 憲章 原則 V と FR-088〜092。Prometheus と OTLP の計測を別々に数えると、両者が
 食い違う余地が生じる。
 
+### D-21: 配布イメージのビルド (ASLR と CA 証明書)
+
+**決定**: バイナリを **static-pie** (位置独立かつ静的にリンク) でビルドする。C ライブラリは
+**musl** (MIT) とし、ビルダは `golang:*-alpine` (ダイジェストで固定)。CA 証明書は
+`golang.org/x/crypto/x509roots/fallback` (BSD-3-Clause) をバイナリに組み込む。
+
+| 案 | 評価 |
+|---|---|
+| **musl で static-pie (採用)** | `scratch` で起動でき、ASLR が有効。musl のライセンス本文 (`third_party/musl/COPYRIGHT`) を `/licenses/third-party/musl/` に同梱する。ビルダの musl の版が本文の版と異なればビルドを失敗させる |
+| 内部リンカで `-buildmode=pie` | Go の内部リンカは static-pie を作れず、動的リンクの PIE (インタプリタ `/lib64/ld-linux-x86-64.so.2` を要する) になる。`scratch` で起動できない |
+| glibc で static-pie | glibc は LGPL。静的リンクした配布は憲章が禁じる |
+| PIE にしない静的バイナリ | 位置依存の実行ファイルであり、憲章が禁じる |
+| ビルダの `ca-certificates` を複写 | 動くが、証明書の束のライセンス (MPL-2.0 のデータ) の扱いが別途要る。`x509roots/fallback` は Go のモジュールとして許容リストの検査の対象になる |
+
+- 依存のライセンス本文は `go-licenses save` でモジュールパスの階層に置く。静的にリンクする
+  Go の標準ライブラリ (`std`) と musl は `go-licenses` の対象外のため、別に置く
+- OCI の標準アノテーションはイメージのラベルとして付ける
+- SBOM と provenance は、リリースのワークフローで push したダイジェストに対して作り、
+  `push-to-registry` でレジストリの referrers として紐づける
+
 ## 4. 実環境検証で確認すべきこと
 
 憲章は `main` へのマージ前に実際の DPF に対する検証を要求している。上記の決定のうち、

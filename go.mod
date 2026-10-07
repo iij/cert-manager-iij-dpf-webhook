@@ -26,6 +26,7 @@ require (
 	go.opentelemetry.io/otel/sdk/log v1.47.0
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20261005185213-c3db4df58582
 	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.16.0
 	k8s.io/api v0.37.1

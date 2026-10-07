@@ -243,12 +243,12 @@ Certificate がそれぞれのトークンで処理されること、および�
 
 ### コンテナイメージと配布
 
-- [ ] T102 [P] `Dockerfile` を作成する。ベースイメージは `scratch`。シェルとパッケージマネージャを含めない
-- [ ] T103 [P] `Dockerfile` に CA 証明書を同梱する。`scratch` には証明書ストアがないため、DPF API への TLS 検証が成立する状態で配布する
-- [ ] T104 [P] ビルドを ASLR 有効 (位置独立) で行うよう `Makefile` に設定する (CI の検証は T122)
-- [ ] T105 [P] イメージの `/licenses/` に本体 (`LICENSE` / `NOTICE`) と依存のライセンス本文を `third-party/` 配下にモジュールパスの階層を保って同梱する。単一ファイルへ連結しない
-- [ ] T106 [P] OCI アノテーション (`licenses` / `title` / `description` / `vendor` / `source` / `version` / `revision` / `created`) を付ける
-- [ ] T107 `.github/workflows/release.yml` に、SBOM と provenance を referrers としてイメージへ紐づける処理を実装する。push と同時に行う
+- [X] T102 [P] `Dockerfile` を作成する。ベースイメージは `scratch`。シェルとパッケージマネージャを含めない
+- [X] T103 [P] `Dockerfile` に CA 証明書を同梱する。`scratch` には証明書ストアがないため、DPF API への TLS 検証が成立する状態で配布する。**(実装時の注記)** CA 証明書はファイルとして同梱せず、`golang.org/x/crypto/x509roots/fallback` でバイナリに備える (research.md D-21)
+- [X] T104 [P] ビルドを ASLR 有効 (位置独立) で行うよう `Makefile` に設定する (CI の検証は T122)
+- [X] T105 [P] イメージの `/licenses/` に本体 (`LICENSE` / `NOTICE`) と依存のライセンス本文を `third-party/` 配下にモジュールパスの階層を保って同梱する。単一ファイルへ連結しない
+- [X] T106 [P] OCI アノテーション (`licenses` / `title` / `description` / `vendor` / `source` / `version` / `revision` / `created`) を付ける
+- [X] T107 `.github/workflows/release.yml` に、SBOM と provenance を referrers としてイメージへ紐づける処理を実装する。push と同時に行う。**(実装時の注記)** ワークフローは actionlint で検査したが、GitHub Actions 上では未実行
 
 ### チャートの既定拒否
 
@@ -272,10 +272,10 @@ Certificate がそれぞれのトークンで処理されること、および�
 - [ ] T119 `.github/workflows/ci.yml` に既定設定での起動時挙動の検証を追加する (`domainFilters` 未設定で管理対象が空 / 必須設定の不足で異常終了 / webhook が平文で待ち受けない)。`cmd/webhook/main.go` の検証を兼ねる
 - [ ] T120 `.github/workflows/ci.yml` に**クライアント証明書検証の検証**を追加する。証明書を提示しない接続と、集約層向け CA 以外で署名された証明書を提示する接続が、いずれも TLS ハンドシェイクで拒否されること (FR-002 / SC-010)
 - [X] T121 `.github/workflows/ci.yml` にトークン取得元 namespace 判定の検証を追加する。`AllowAmbientCredentials` が `false` の要求が `ResourceNamespace` 以外を読めないこと、**RBAC 上は読める状態でも読まないこと**
-- [ ] T122 `.github/workflows/ci.yml` に依存ライセンス検査と、イメージへのライセンス同梱・OCI アノテーション・`scratch`・ASLR の検証を追加する
+- [X] T122 `.github/workflows/ci.yml` に依存ライセンス検査と、イメージへのライセンス同梱・OCI アノテーション・`scratch`・ASLR の検証を追加する
 - [X] T123 `.github/workflows/ci.yml` に、利用者に見える契約に対応するパス (`internal/solver/config.go` / `deploy/chart/**` / `contracts/solver-config.schema.json`) が変更された PR で `CHANGELOG.md` の更新を求める検査を追加する。**判定は補助でありレビューの代替ではない** (憲章のレビュー観点)
 - [ ] T124 `.github/workflows/ci.yml` に実環境検証 (T012〜T015 / T075 / T076 / T087 / T100) を追加する。**実行環境として、CI 内に一時的な Kubernetes クラスタ (kind など) を立て、cert-manager v1.21.2 と、同じ CI で作ったイメージを用いた本チャートを導入する。**T076 のために、異なるロックオーナーを持つ配備を 2 つ (別の namespace) 用意する。クラスタは実行ごとに作り直し、終了時に破棄する。証明書の取得まで確かめる e2e には `ACME_SERVER` に Let's Encrypt のステージング環境を与え、本番環境の値を CI の設定に置かない。検証用ゾーンに対してレコードの追加・変更・削除を実行し、**並列実行しない** (`-p 1`)。後続の実行を待たせる
-- [ ] T125 `.github/workflows/scheduled.yml` に `govulncheck` とイメージの脆弱性スキャンの定期実行を追加する
+- [X] T125 `.github/workflows/scheduled.yml` に `govulncheck` とイメージの脆弱性スキャンの定期実行を追加する
 - [X] T126 CI で用いる Go / `golangci-lint` / `govulncheck` / `betterleaks` のバージョンを固定する
 
 ### 仕上げ

@@ -97,3 +97,19 @@ jobs:
         run: ./scripts/check-changelog_test.sh
       - name: CHANGELOG の更新
         run: ./scripts/check-changelog.sh "origin/${{ github.base_ref }}"
+
+  image:
+    # コンテナイメージのビルドと脆弱性スキャン、配布物の検査 (scratch・ASLR・CA・ライセンスの
+    # 同梱・OCI アノテーション・非 root)。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: イメージのビルド
+        run: make image IMAGE=cert-manager-iij-dpf-webhook:ci REVISION="${GITHUB_SHA}"
+      - name: 配布物の検査
+        run: make check-image IMAGE=cert-manager-iij-dpf-webhook:ci
+      - name: 脆弱性スキャン
+        run: make scan-image IMAGE=cert-manager-iij-dpf-webhook:ci
