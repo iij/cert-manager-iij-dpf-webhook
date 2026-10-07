@@ -258,29 +258,29 @@ Certificate がそれぞれのトークンで処理されること、および�
 
 ### 利用者向け文書
 
-- [ ] T111 [P] `README.md` に**サポート範囲の注記**を憲章が定める文面のまま記載する。要約・言い換えをしない
-- [ ] T112 [P] `README.md` に自前 Helm チャートを用いたデプロイ手順を記載する。cert-manager 本体の導入は前提条件として扱う。**external-dns など他機構を経路として記載しない**
-- [ ] T113 [P] `README.md` に APIService の CA 証明書の配布経路、動作保証する cert-manager のバージョン (v1.21.2 以降)、ライセンスと著作権表示を記載する
+- [X] T111 [P] `README.md` に**サポート範囲の注記**を憲章が定める文面のまま記載する。要約・言い換えをしない
+- [X] T112 [P] `README.md` に自前 Helm チャートを用いたデプロイ手順を記載する。cert-manager 本体の導入は前提条件として扱う。**external-dns など他機構を経路として記載しない**
+- [X] T113 [P] `README.md` に APIService の CA 証明書の配布経路、動作保証する cert-manager のバージョン (v1.21.2 以降)、ライセンスと著作権表示を記載する
 - [ ] T114 [P] `README.md` に、kube-apiserver を NetworkPolicy の送信元として表現できないクラスタでの扱いと、その残余をクライアント証明書の検証が担うことを記載する。あわせて**運用上の注意** (同じゾーンを触るプログラムを `dpf-go` v0.6.0 以降にそろえること、ゾーンのラベルを 1 つ消費すること、ロック中も管理画面からの編集は止められないこと、使用済みの RDATA が期限まで残ること) を記載する
 - [ ] T115 `README.md` と `CHANGELOG.md` の記載が食い違っていないことを確認する。食い違う場合は同じ変更のなかで `README.md` を直す (憲章「変更の記録」)
-- [ ] T116 [P] `CLAUDE.md` にディレクトリ構成・コーディング規約・頻用コマンドを記載する。憲章とは分離する
+- [X] T116 [P] `CLAUDE.md` にディレクトリ構成・コーディング規約・頻用コマンドを記載する。憲章とは分離する
 
 ### CI 品質ゲート
 
-- [ ] T117 `.github/workflows/ci.yml` に憲章が求めるゲートを実装する: `betterleaks` による履歴のシークレット検査 / `gofmt -l ./...` が空 / SPDX ヘッダ / **ACME サーバの接続先の検査 (`scripts/check-acme-endpoints.sh`。本番環境と許可リスト外を拒否)** / `go build ./...` / `golangci-lint run` / `govulncheck ./...` / `go test ./...`
-- [ ] T118 `.github/workflows/ci.yml` に契約テスト (T055) を追加する
+- [X] T117 `.github/workflows/ci.yml` に憲章が求めるゲートを実装する: `betterleaks` による履歴のシークレット検査 / `gofmt -l ./...` が空 / SPDX ヘッダ / **ACME サーバの接続先の検査 (`scripts/check-acme-endpoints.sh`。本番環境と許可リスト外を拒否)** / `go build ./...` / `golangci-lint run` / `govulncheck ./...` / `go test ./...`
+- [X] T118 `.github/workflows/ci.yml` に契約テスト (T055) を追加する
 - [ ] T119 `.github/workflows/ci.yml` に既定設定での起動時挙動の検証を追加する (`domainFilters` 未設定で管理対象が空 / 必須設定の不足で異常終了 / webhook が平文で待ち受けない)。`cmd/webhook/main.go` の検証を兼ねる
 - [ ] T120 `.github/workflows/ci.yml` に**クライアント証明書検証の検証**を追加する。証明書を提示しない接続と、集約層向け CA 以外で署名された証明書を提示する接続が、いずれも TLS ハンドシェイクで拒否されること (FR-002 / SC-010)
-- [ ] T121 `.github/workflows/ci.yml` にトークン取得元 namespace 判定の検証を追加する。`AllowAmbientCredentials` が `false` の要求が `ResourceNamespace` 以外を読めないこと、**RBAC 上は読める状態でも読まないこと**
+- [X] T121 `.github/workflows/ci.yml` にトークン取得元 namespace 判定の検証を追加する。`AllowAmbientCredentials` が `false` の要求が `ResourceNamespace` 以外を読めないこと、**RBAC 上は読める状態でも読まないこと**
 - [ ] T122 `.github/workflows/ci.yml` に依存ライセンス検査と、イメージへのライセンス同梱・OCI アノテーション・`scratch`・ASLR の検証を追加する
-- [ ] T123 `.github/workflows/ci.yml` に、利用者に見える契約に対応するパス (`internal/solver/config.go` / `deploy/chart/**` / `contracts/solver-config.schema.json`) が変更された PR で `CHANGELOG.md` の更新を求める検査を追加する。**判定は補助でありレビューの代替ではない** (憲章のレビュー観点)
+- [X] T123 `.github/workflows/ci.yml` に、利用者に見える契約に対応するパス (`internal/solver/config.go` / `deploy/chart/**` / `contracts/solver-config.schema.json`) が変更された PR で `CHANGELOG.md` の更新を求める検査を追加する。**判定は補助でありレビューの代替ではない** (憲章のレビュー観点)
 - [ ] T124 `.github/workflows/ci.yml` に実環境検証 (T012〜T015 / T075 / T076 / T087 / T100) を追加する。**実行環境として、CI 内に一時的な Kubernetes クラスタ (kind など) を立て、cert-manager v1.21.2 と、同じ CI で作ったイメージを用いた本チャートを導入する。**T076 のために、異なるロックオーナーを持つ配備を 2 つ (別の namespace) 用意する。クラスタは実行ごとに作り直し、終了時に破棄する。証明書の取得まで確かめる e2e には `ACME_SERVER` に Let's Encrypt のステージング環境を与え、本番環境の値を CI の設定に置かない。検証用ゾーンに対してレコードの追加・変更・削除を実行し、**並列実行しない** (`-p 1`)。後続の実行を待たせる
 - [ ] T125 `.github/workflows/scheduled.yml` に `govulncheck` とイメージの脆弱性スキャンの定期実行を追加する
-- [ ] T126 CI で用いる Go / `golangci-lint` / `govulncheck` / `betterleaks` のバージョンを固定する
+- [X] T126 CI で用いる Go / `golangci-lint` / `govulncheck` / `betterleaks` のバージョンを固定する
 
 ### 仕上げ
 
-- [ ] T127 依存ライセンスを実測し直し、許容リストの範囲内であることを確認する。憲章が求める再実測 (`misc/k8s` 採用後の構成)
+- [X] T127 依存ライセンスを実測し直し、許容リストの範囲内であることを確認する。憲章が求める再実測 (`misc/k8s` 採用後の構成)
 - [ ] T128 `quickstart.md` の検証手順を通しで実行し、成功基準 SC-001〜SC-027 (削除した SC-002 を除く) を確認する
 
 ---

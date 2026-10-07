@@ -2,6 +2,8 @@ module github.com/iij/cert-manager-iij-dpf-webhook
 
 go 1.27.0
 
+toolchain go1.27.1
+
 require (
 	github.com/cert-manager/cert-manager v1.21.2
 	github.com/iij/dpf-go v0.6.0

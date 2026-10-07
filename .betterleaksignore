@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# betterleaks の誤検出の除外。1 行に 1 つ、検出の指紋 (コミット:ファイル:規則:行) を書き、
+# 直前の行に除外の理由を書く。
+
+# RFC 8555 §8.4 の例に現れる DNS-01 のチャレンジ値 (公開されている例であり秘密ではない)。
+3c05b9397f989ab264aa068c4d98dbf57f3b7b4a:internal/challenge/digest_test.go:generic-api-key:15

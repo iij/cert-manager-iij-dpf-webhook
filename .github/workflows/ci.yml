@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# マージの条件とする検査 (憲章「開発ワークフローと品質ゲート」)。
+# ツールの版は Makefile (golangci-lint / govulncheck / go-licenses / betterleaks) と
+# go.mod の toolchain (Go) が唯一の出典であり、本ファイルは版を持たない。helm のみ本ファイルで固定する。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v4.2.2
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # シークレットの検査は履歴を走査し、CHANGELOG の検査は基点との差分を取る。
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: シークレットの混入検査 (betterleaks。履歴を走査する)
+        run: make secrets
+
+      - name: 整形 (gofmt -l の出力が空)
+        run: make fmt-check
+
+      - name: SPDX ヘッダ
+        run: make spdx
+
+      - name: ドメイン名の判定に strings を使わない
+        run: make domain-string
+
+      - name: ACME サーバの接続先 (本番環境と許可リスト外を拒否)
+        run: make acme-endpoints
+
+      - name: ビルド
+        run: make build
+
+      - name: 静的解析 (golangci-lint)
+        run: make lint
+
+      - name: 脆弱性検査 (govulncheck)
+        run: make vuln
+
+      - name: 全テスト
+        # CI では helm が無ければチャートの検証を失敗とする (test/integration)。
+        env:
+          CI: "true"
+        run: make test
+
+      - name: cert-manager webhook API の契約テスト
+        run: make contract
+
+      - name: トークン取得元 namespace の判定
+        # AllowAmbientCredentials が false の要求が ResourceNamespace 以外を読まないこと。
+        # 模擬の Secret の出所はどの namespace も読める (RBAC 上は読める状態) ため、読まない
+        # ことは solver の判定によってのみ成り立つ。
+        run: >-
+          go test -count=1 -v
+          -run 'TestNamespacedIssuer|TestClusterIssuerTokenNamespace|TestNamespacedIssuersUseTheirOwnTokens'
+          ./test/integration/
+
+      - name: チャートの RBAC (Secret は get のみ・ワイルドカード無し・namespace の列挙)
+        env:
+          CI: "true"
+        run: go test -count=1 -v -run 'TestChartUS1|TestChartRBACNamespaced' ./test/integration/
+
+      - name: 依存ライセンスの検査 (許容リスト外の依存が無い)
+        run: make licenses
+
+  changelog:
+    # 利用者に見える契約に対応するファイルを変えた PR に、CHANGELOG.md の更新を求める。
+    # 判定は補助でありレビューの代替ではない。レビューで利用者に見えないと判断した場合は、
+    # PR にラベル changelog-not-needed を付けて省略する。
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'changelog-not-needed')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: 検査のテスト
+        run: ./scripts/check-changelog_test.sh
+      - name: CHANGELOG の更新
+        run: ./scripts/check-changelog.sh "origin/${{ github.base_ref }}"
