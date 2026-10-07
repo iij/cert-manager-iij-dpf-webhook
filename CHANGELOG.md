@@ -35,8 +35,17 @@
   `POD_NAMESPACE`。必須設定が不足していれば起動しない
 - Helm チャート: APIService (サービング証明書は cert-manager で発行し CA を注入)、Deployment
   (非 root・`restricted` を満たす。webhook はコンテナの 10443、healthz / metrics は 8080)、
-  Service (443)、RBAC (Secret は本サービスの namespace に `get` のみ、集約 API サーバの
-  委譲認証、cert-manager による solver の呼び出し)。トークンの Secret は作らない
+  Service (443)、RBAC (Secret は `get` のみ、集約 API サーバの委譲認証、cert-manager による
+  solver の呼び出し)。トークンの Secret は作らない
+- Helm チャートの `tokenSecrets`: Secret の `get` を許す namespace を列挙して、namespace ごとの
+  Role/RoleBinding のみで構成する。`tokenSecrets.namespaces` (既定 `[]`) に namespace 限定の
+  Issuer を置く namespace を、`tokenSecrets.releaseNamespace` (既定 `true`) で本サービスの
+  namespace を対象にする。ClusterIssuer を使わない構成では `false` にして本サービスの
+  namespace に権限を与えない。全 namespace へ付与する ClusterRole は作らない
+- トークンの取得の失敗の分類: Secret 不在・key 不在・値が空・読み取り権限なしは恒久的な失敗とし、
+  再試行しない。Kubernetes API への到達失敗などは一時的な失敗とし、1 回の読み出しにつき
+  3 回まで試行する。分類はログの `failure` (`permanent` / `temporary`) に記録する
+- トークンは要求のたびに Secret から読む。ローテーションや Secret の作成・修正は再起動なしに反映される
 
 ### Notes
 

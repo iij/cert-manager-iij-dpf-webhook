@@ -18,6 +18,17 @@ certManager:
   namespace: cert-manager
   serviceAccountName: cert-manager
 
+# tokenSecrets はトークンの Secret を get できる namespace である。namespace ごとに
+# Role/RoleBinding を作る (ClusterRole による全 namespace への付与はしない)。
+tokenSecrets:
+  # 本 Pod の namespace。ClusterIssuer が tokenSecretRef.namespace を省略したときの取得元である。
+  # ClusterIssuer を使わない構成では false にする。
+  releaseNamespace: true
+  # namespace 限定の Issuer を置く namespace (Issuer は自身の namespace の Secret のみを読む)。
+  # ClusterIssuer の tokenSecretRef.namespace が本 Pod の namespace 以外を指す場合も、その
+  # namespace をここに加える。
+  namespaces: []
+
 image:
   repository: ghcr.io/iij/cert-manager-iij-dpf-webhook
   tag: ""

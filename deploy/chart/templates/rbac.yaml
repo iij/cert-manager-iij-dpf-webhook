@@ -3,14 +3,26 @@
 # 権限は用途 1 (トークンの Secret の get) と用途 2 (集約 API サーバの枠組み) に限る (D-08)。
 # ワイルドカードを用いない。
 #
-# 用途 1: ClusterIssuer の既定の取得元である本 Pod の namespace の Secret を get する。
+# 用途 1: トークンの Secret を get する。対象の namespace ごとに Role/RoleBinding を作り、
+# ClusterRole で全 namespace へ付与しない。
+#   - tokenSecrets.releaseNamespace: ClusterIssuer の既定の取得元である本 Pod の namespace
+#   - tokenSecrets.namespaces: namespace 限定の Issuer を置く namespace と、ClusterIssuer の
+#     tokenSecretRef.namespace が指す namespace
+{{- $namespaces := list }}
+{{- if .Values.tokenSecrets.releaseNamespace }}
+{{- $namespaces = append $namespaces .Release.Namespace }}
+{{- end }}
+{{- range .Values.tokenSecrets.namespaces }}
+{{- $namespaces = append $namespaces . }}
+{{- end }}
+{{- range $ns := uniq $namespaces }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "webhook.fullname" . }}:secret-reader
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "webhook.fullname" $ }}:secret-reader
+  namespace: {{ $ns }}
   labels:
-    {{- include "webhook.labels" . | nindent 4 }}
+    {{- include "webhook.labels" $ | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -19,19 +31,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "webhook.fullname" . }}:secret-reader
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "webhook.fullname" $ }}:secret-reader
+  namespace: {{ $ns }}
   labels:
-    {{- include "webhook.labels" . | nindent 4 }}
+    {{- include "webhook.labels" $ | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "webhook.fullname" . }}:secret-reader
+  name: {{ include "webhook.fullname" $ }}:secret-reader
 subjects:
   - kind: ServiceAccount
-    name: {{ include "webhook.fullname" . }}
-    namespace: {{ .Release.Namespace }}
+    name: {{ include "webhook.fullname" $ }}
+    namespace: {{ $.Release.Namespace }}
 ---
+{{- end }}
 # 用途 2: 集約層向け CA の取得 (委譲認証が informer を用いるため list / watch を含む)。
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

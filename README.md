@@ -64,6 +64,52 @@ spec:
               domainFilters: ["example.jp", "*.example.jp"]
 ```
 
+### 4. namespace 限定の Issuer を使う (テナントごとのトークン)
+
+namespace 限定の Issuer は、**その Issuer と同じ namespace の Secret だけ**を読みます。
+`tokenSecretRef.namespace` に他の namespace を書くと、その要求は失敗します (読み替えません)。
+
+本サービスが Secret を読めるよう、Issuer を置く namespace を `tokenSecrets.namespaces` に列挙して
+導入します。namespace ごとに Secret の `get` のみを許す Role/RoleBinding が作られ、全 namespace へ
+権限を与える ClusterRole は作りません。ClusterIssuer を使わない場合は
+`tokenSecrets.releaseNamespace=false` とし、本サービスの namespace に権限を与えないでください。
+
+```bash
+helm upgrade --install dpf-webhook ./deploy/chart \
+  --namespace cert-manager \
+  --set lockOwner=cluster-a \
+  --set 'tokenSecrets.namespaces={team-a,team-b}' \
+  --set tokenSecrets.releaseNamespace=false
+```
+
+```bash
+kubectl -n team-a create secret generic dpf-token --from-file=token=./team-a-token.txt
+```
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: dpf
+  namespace: team-a
+spec:
+  acme:
+    email: team-a@example.jp
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: dpf-acme-account
+    solvers:
+      - dns01:
+          webhook:
+            groupName: acme.dns-platform.jp
+            solverName: iij-dpf
+            config:
+              domainFilters: ["team-a.example.jp", "*.team-a.example.jp"]
+```
+
+ClusterIssuer の `tokenSecretRef.namespace` で本サービス以外の namespace を指す場合も、その
+namespace を `tokenSecrets.namespaces` に加えてください。
+
 ### solver 設定
 
 | フィールド | 既定 | 説明 |
@@ -87,6 +133,10 @@ spec:
   ゾーンロックの方式が異なり、混在すると排他が成立しません。
 - ゾーンロックはゾーンのラベルを 1 つ消費します (`lock.dpf-go`)。
 - ゾーンロックの保持中も、管理画面や他ユーザからのレコードの編集は止められません。
+- トークンの取得の失敗は、ログの `failure` に分類を記録します。Secret が無い・キーが無い・値が
+  空・読む権限が無い場合は `permanent` で、Secret を直すまで成功しません (1 回の要求のなかでは繰り返し
+  読みません)。Kubernetes API に到達できない場合は `temporary` で、1 回の読み出しにつき 3 回まで
+  試します。Secret の作成や修正、トークンのローテーションは、再起動しなくても次の要求から使われます。
 - 1 回の処理が kube-apiserver の要求のタイムアウト (60 秒) を越えることがあります。その場合も
   処理は続き、cert-manager の再試行で完了します (操作期限の既定は 5 分)。
 
