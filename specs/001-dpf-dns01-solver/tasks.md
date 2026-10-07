@@ -252,8 +252,8 @@ Certificate がそれぞれのトークンで処理されること、および�
 
 ### チャートの既定拒否
 
-- [ ] T108 [P] `test/integration/chart_policy_test.go` に、チャートの既定の検証を書く。NetworkPolicy の ingress が **kube-apiserver** からの webhook ポートと probe/スクレイプからの exposed ポートに限られ、**cert-manager の namespace を送信元にしないこと**、egress が API server / DPF / DNS に限られ OTLP は送出先が設定された場合のみであること、CPU・メモリの requests と limits があること、Pod Security Standards の `restricted` を満たし `privileged` / `hostNetwork` / `hostPID` / `hostIPC` / hostPath を既定で有効にしないこと、RBAC が用途 1 と用途 2 に閉じ Secret に `list`/`watch`/書き込み動詞とワイルドカードを含まないこと (D-08) → T109, T110
-- [ ] T109 [P] `deploy/chart/templates/networkpolicy.yaml` を作成する (T108 の条件を満たす)
+- [ ] T108 [P] `test/integration/chart_policy_test.go` に、チャートの既定の検証を書く。**NetworkPolicy (憲章 v3.3.0)**: 既定の種類が k8s 標準であること、webhook ポートへの ingress が `networkPolicy.kubeAPIServerCIDRs` からに限られ**未設定なら描画が失敗すること**、cert-manager の namespace を送信元にしないこと、exposed ポートへの ingress が `networkPolicy.exposedFrom` に限られ全開放しないこと、**egress を既定で作らないこと**、`networkPolicy.egress` を与えた場合にその規則のみが egress になること、`networkPolicy.type=cilium` で CiliumNetworkPolicy (`fromEntities: kube-apiserver` / `host`) になること。**プロキシ**: `proxy.httpsProxy` を与えた場合にのみ `HTTPS_PROXY` / `NO_PROXY` (先頭に `$(KUBERNETES_SERVICE_HOST)`) を渡すこと。あわせて CPU・メモリの requests と limits があること、Pod Security Standards の `restricted` を満たし `privileged` / `hostNetwork` / `hostPID` / `hostIPC` / hostPath を既定で有効にしないこと、RBAC が用途 1 と用途 2 に閉じ Secret に `list`/`watch`/書き込み動詞とワイルドカードを含まないこと (D-08) → T109, T110
+- [ ] T109 [P] `deploy/chart/templates/networkpolicy.yaml` を作成し、`values.yaml` に `networkPolicy` と `proxy` を加える (T108 の条件を満たす。plan.md の Technical Context)
 - [ ] T110 [P] `deploy/chart/templates/deployment.yaml` に CPU・メモリの requests と limits の既定を追加する
 
 ### 利用者向け文書
@@ -261,7 +261,7 @@ Certificate がそれぞれのトークンで処理されること、および�
 - [X] T111 [P] `README.md` に**サポート範囲の注記**を憲章が定める文面のまま記載する。要約・言い換えをしない
 - [X] T112 [P] `README.md` に自前 Helm チャートを用いたデプロイ手順を記載する。cert-manager 本体の導入は前提条件として扱う。**external-dns など他機構を経路として記載しない**
 - [X] T113 [P] `README.md` に APIService の CA 証明書の配布経路、動作保証する cert-manager のバージョン (v1.21.2 以降)、ライセンスと著作権表示を記載する
-- [ ] T114 [P] `README.md` に、kube-apiserver を NetworkPolicy の送信元として表現できないクラスタでの扱いと、その残余をクライアント証明書の検証が担うことを記載する。あわせて**運用上の注意** (同じゾーンを触るプログラムを `dpf-go` v0.6.0 以降にそろえること、ゾーンのラベルを 1 つ消費すること、ロック中も管理画面からの編集は止められないこと、使用済みの RDATA が期限まで残ること) を記載する
+- [ ] T114 [P] `README.md` に、kube-apiserver を NetworkPolicy の送信元として表現できないクラスタでの扱い (k8s 標準では CIDR を必須とすること、Cilium の選択) と、その残余をクライアント証明書の検証が担うことを記載する。**egress を制限する場合に許可すべき通信 (Kubernetes API server・DPF API・DNS・OTLP の送出先、プロキシ経由の場合はプロキシ) と、Cilium の `toFQDNs` / プロキシの設定例**を記載する。あわせて**運用上の注意** (同じゾーンを触るプログラムを `dpf-go` v0.6.0 以降にそろえること、ゾーンのラベルを 1 つ消費すること、ロック中も管理画面からの編集は止められないこと、使用済みの RDATA が期限まで残ること) を記載する
 - [ ] T115 `README.md` と `CHANGELOG.md` の記載が食い違っていないことを確認する。食い違う場合は同じ変更のなかで `README.md` を直す (憲章「変更の記録」)
 - [X] T116 [P] `CLAUDE.md` にディレクトリ構成・コーディング規約・頻用コマンドを記載する。憲章とは分離する
 

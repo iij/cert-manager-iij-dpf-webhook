@@ -175,9 +175,12 @@ RBAC の範囲がその分狭くなる。
 そこに置かれた requestheader 用 CA でクライアント証明書を検証する
 (`k8s.io/apiserver/pkg/server/options/authentication.go`)。
 
-**仕様が求める「集約層以外からの接続を TLS ハンドシェイクで拒否する」は、
-フレームワークが既定で提供する。** 独自実装は不要であり、
-CA をイメージに焼き込まない要件も自動的に満たされる。
+~~**仕様が求める「集約層以外からの接続を TLS ハンドシェイクで拒否する」は、
+フレームワークが既定で提供する。**~~ **(訂正 2026-10-07)** この記述は誤りである。
+`k8s.io/apiserver/pkg/server/secure_serving.go` は ClientCA がある場合に
+`tlsConfig.ClientAuth = tls.RequestClientCert` とし、証明書を提示しない接続を拒否しない
+(証明書の検証は後段の認証で行い、匿名の要求は認可で 401/403 になる)。ハンドシェイクでの
+拒否には別の手当てが要る (tasks.md T120)。CA をイメージに焼き込まない要件は満たされる。
 
 ### 2.3 dpf-go: ゾーンロック (v0.6.0)
 

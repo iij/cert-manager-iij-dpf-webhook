@@ -85,6 +85,23 @@ RDATA とラベル、およびゾーンのラベルによるロック) に置く
 
 **Target Platform**: Linux コンテナ (`scratch` ベース)。Kubernetes 上で APIService として動作。
 
+**NetworkPolicy** (憲章 v3.3.0): チャートの `networkPolicy.type` で種類を選ぶ。
+
+| 種類 (`networkPolicy.type`) | webhook ポート (コンテナの 10443) への ingress の送信元 | exposed ポート (8080) への ingress の送信元 |
+|---|---|---|
+| `kubernetes` (**既定**。`networking.k8s.io/v1` の NetworkPolicy) | `networkPolicy.kubeAPIServerCIDRs` (**必須**。未設定なら描画を失敗させる) | `networkPolicy.exposedFrom` (NetworkPolicyPeer の一覧。既定は空) |
+| `cilium` (`cilium.io/v2` の CiliumNetworkPolicy) | `fromEntities: [kube-apiserver]` | `fromEntities: [host]` (kubelet の probe) と `networkPolicy.exposedFrom` |
+
+- egress の制限は既定で作らない。`networkPolicy.egress` に規則 (種類に応じた egress の規則の
+  一覧。Cilium では `toFQDNs` も書ける) を与えた場合にのみ、egress をその規則に限る
+- 本サービスが必要とする egress: Kubernetes API server (443/TCP)、DPF API
+  (`api.dns-platform.jp` の 443/TCP)、DNS (53/UDP・TCP)、OTLP の送出先 (設定した場合)。
+  HTTP プロキシを経由する場合は DPF API と OTLP の代わりにプロキシへの egress を許す
+- HTTP プロキシは `proxy.httpsProxy` / `proxy.noProxy` で与え、環境変数 `HTTPS_PROXY` /
+  `NO_PROXY` としてコンテナへ渡す。DPF API・Kubernetes API・OTLP の各クライアントはこの
+  環境変数に従う。Kubernetes API をプロキシ経由にしないため、`NO_PROXY` の先頭に
+  `$(KUBERNETES_SERVICE_HOST)` を常に置く
+
 **Project Type**: 単一の HTTP サービス (集約 API サーバ)。CLI・ライブラリとしての公開はしない。
 
 **Performance Goals**: DPF の変更系 API は非同期であり、ジョブ 1 回の完了に **10 秒以上**を要する。
@@ -164,9 +181,9 @@ SC-026)、タイムアウト後の再試行で収束すること (SC-027)、自�
 | 呼称は「IIJ DNSプラットフォームサービス」/「DPF」 | PASS | |
 | ドメイン名は `miekg/dns` で扱う | PASS | ゾーン取得は `utils.GetZoneFromName` (内部で `dns.IsSubDomain` / `dns.CountLabel`) の結果が `ResolvedZone` と正規化名で一致することを確かめる。`ResolvedFQDN` が配下にあることは `dns.IsSubDomain` で判定する。`domainFilters` の判定も `miekg/dns` で実装し `strings` を使わない |
 | APIService として実装 / 集約層から呼ばれる | PASS | |
-| クライアント証明書検証 / 平文で待ち受けない | PASS | フレームワークが提供 |
+| クライアント証明書検証 / 平文で待ち受けない | **要対応** | 平文で待ち受けないこと、委譲認証による証明書の検証はフレームワークが提供する。**ただしフレームワーク (`k8s.io/apiserver`) はクライアント証明書を任意 (`tls.RequestClientCert`) とし、証明書の無い接続をハンドシェイクで拒否しない** (research.md §2.2 の記述は誤り)。実現方法を調査する (T120) |
 | RBAC は用途 1 と用途 2 に閉じる | PASS | research.md D-08 で一覧を確定 |
-| NetworkPolicy | PASS | kube-apiserver からの ingress、API server / DPF / DNS への egress |
+| NetworkPolicy (v3.3.0) | PASS | 種類は k8s 標準 (既定) と Cilium。ingress は kube-apiserver と probe・スクレイプに限る。egress は既定で作らず、利用者が規則を与える (Technical Context) |
 | `scratch` / 非 root / `restricted` | PASS | |
 | 変更の記録 (`CHANGELOG.md`、v3.1.0) | PASS | 各ユーザーストーリーの末尾に記録のタスクを置き、CI で契約に対応するパスの変更時に更新を求める |
 | 実環境での検証 (検証用ゾーン、直列実行) | PASS | e2e を `-p 1` で直列に実行する。本番ゾーンを使わない |
