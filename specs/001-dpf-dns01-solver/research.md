@@ -1158,6 +1158,51 @@ v0.36 系を受け付けるようになった場合は、本決定を見直す�
 - SBOM と provenance は、リリースのワークフローで push したダイジェストに対して作り、
   `push-to-registry` でレジストリの referrers として紐づける
 
+### D-22: webhook エンドポイントの待ち受けを自前で行う (T120)
+
+**決定**: webhook エンドポイント (443 / `--secure-port`) の TLS の待ち受けを、
+`k8s.io/apiserver` に任せず本サービスが行う。クライアント証明書を**必須として検証**し
+(`tls.RequireAndVerifyClientCert`)、検証に用いる CA は `kube-system/extension-apiserver-authentication`
+の **`requestheader-client-ca-file` のみ**とする。
+
+**経緯**: §2.2 の訂正のとおり、`k8s.io/apiserver` v0.37.1 の `SecureServingInfo.tlsConfig`
+(`pkg/server/secure_serving.go:78`) は `ClientAuth` を `tls.RequestClientCert` に固定する。
+`tls.Config` を差し替える口は無く、`cmd.RunWebhookServer` を用いる限り、証明書を提示しない接続が
+ハンドシェイクを通り、後段の認可で 401/403 になる。憲章はこれを禁じる。
+
+**構成**:
+
+- cert-manager の `server.NewWebhookServerOptions` で設定と `GenericAPIServer` を組み立てる
+  (フラグ・委譲認証・委譲認可・API の登録は従来どおり)
+- `SecureServingInfo.Listener` を、接続を受け付けないリスナに差し替える。`RunWithContext` は
+  そのまま用い、post-start hook・ライフサイクル・終了処理と、`SecureServingInfo.Serve` が始める
+  CA の更新 (委譲認証の x509 の検証が用いる) はフレームワークに任せる
+- 本来のリスナでは、本サービスの `http.Server` が `GenericAPIServer.Handler` を提供する。
+  サーバ証明書は `SecureServingInfo.Cert` (ファイルの更新に追随する) を、
+  TLS の最小版・暗号スイートは `SecureServingInfo` の値を用いる。HTTP/2 の上限はフレームワークと揃える
+- requestheader CA は ConfigMap から読み、更新に追随する。CA が得られない間は、
+  すべての接続をハンドシェイクで拒否する (`ClientCAs` が空だとシステムの CA で検証されるため)
+
+**比較した案**:
+
+| 案 | 評価 |
+|---|---|
+| **待ち受けを自前で行う (採用)** | 憲章を満たす。起動処理が増え、HTTP/2 の設定などフレームワークの値を写す。フレームワークの更新時に差分を確かめる必要がある |
+| 上流 (`k8s.io/apiserver`) に `ClientAuth` を選ぶ口を提案して待つ | 取り込みと cert-manager の追随まで T120 が完了しない |
+| 憲章と FR-002 を改め、後段の認可での拒否を認める | 憲章が明示的に禁じる設計であり、本機能の都合で緩めない |
+| 委譲認証のハンドラの前で証明書の有無を判定する | 後段での判定であり、憲章が禁じる |
+
+**検証に用いる CA**: kube-apiserver の集約層は、APIService への中継で
+`--proxy-client-cert-file` の証明書を提示する。その署名者が requestheader CA である。
+集約層はトークンを用いず、利用者の `Authorization` ヘッダも転送しない。`client-ca-file` を加えると、
+クラスタの CA で署名された利用者の証明書でも Pod へ直接つなげる。そのため加えない。結果として、
+Pod へ直接つなぐ委譲認証の経路 (TokenReview・利用者の証明書) は使えなくなる。cert-manager は
+APIService を経由して呼ぶため影響しない。集約層の証明書を設定していないクラスタは、
+従来も要求が匿名になり動作しない。
+
+**見直しの契機**: `k8s.io/apiserver` がクライアント証明書を必須にする設定を提供した場合は、
+自前の待ち受けをやめる。
+
 ## 4. 実環境検証で確認すべきこと
 
 憲章は `main` へのマージ前に実際の DPF に対する検証を要求している。上記の決定のうち、
