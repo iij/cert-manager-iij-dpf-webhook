@@ -97,6 +97,10 @@ func TestUS3DiagnosisFromLogs(t *testing.T) {
 			if !strings.Contains(out, "failure=") {
 				t.Errorf("log does not record the failure classification")
 			}
+			// トークンの誤りは Secret を直さない限り解消しない (research.md D-23)。
+			if name == "無効なトークン" && !strings.Contains(out, "failure=permanent") {
+				t.Errorf("invalid token is not classified as permanent:\n%s", out)
+			}
 		})
 	}
 }

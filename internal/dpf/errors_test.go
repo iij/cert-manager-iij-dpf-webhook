@@ -75,6 +75,40 @@ func TestConvertAPIErrorKeepsBody(t *testing.T) {
 	assertNoSDKTypes(t, got)
 }
 
+// 無効なトークンは恒久的な失敗とし、その他のエラー応答は一時的な失敗とする (research.md D-23)。
+// 本文は DPF-API リファレンス 2.3 と、実環境の応答 (T100) に倣う。
+func TestConvertAPIErrorClassifiesInvalidToken(t *testing.T) {
+	cases := []struct {
+		name      string
+		body      string
+		permanent bool
+	}{
+		{"無効なトークン", `{"request_id":"R1","error_type":"ParameterError","error_message":"There are invalid parameters.","error_details":[{"code":"invalid","attribute":"access_token"}]}`, true},
+		{"他のパラメータの誤り", `{"request_id":"R2","error_type":"ParameterError","error_message":"There are invalid parameters.","error_details":[{"code":"invalid","attribute":"name"}]}`, false},
+		{"JSON の解析の失敗", `{"request_id":"R3","error_type":"ParameterError","error_message":"JSON parse error occurred."}`, false},
+		{"本文が JSON でない", `<html>bad gateway</html>`, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, _, err := sdk.NewAPIClient(newErrorServer(t, c.body)).ZonesAPI.GetZoneList(context.Background()).Execute()
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			got := dpf.Convert(err)
+			if !errors.Is(got, dpf.ErrAPI) {
+				t.Fatalf("Convert = %v, want ErrAPI", got)
+			}
+			if dpf.IsPermanent(got) != c.permanent {
+				t.Errorf("IsPermanent = %v, want %v", dpf.IsPermanent(got), c.permanent)
+			}
+			if dpf.IsPermanent(dpf.Public(got)) != c.permanent {
+				t.Errorf("Public で分類が変わった")
+			}
+			assertNoSDKTypes(t, got)
+		})
+	}
+}
+
 func assertNoSDKTypes(t *testing.T, err error) {
 	t.Helper()
 	var apiErr *sdk.GenericOpenAPIError
