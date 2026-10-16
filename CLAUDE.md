@@ -66,6 +66,8 @@ make lint           # golangci-lint (版は Makefile で固定)
 make vuln           # govulncheck
 go test ./test/integration/ -run TestChart   # チャートの検証 (helm が必要)
 
-# 実環境の検証 (検証用ゾーンのみ。並列に実行しない)
-DPF_API_TOKEN=... DPF_TEST_ZONE=... go test -tags e2e -p 1 ./test/e2e/
+# 実環境の検証 (検証用ゾーンのみ。並列に実行しない)。DPF_API_TOKEN と DPF_TEST_ZONE を環境変数で与える
+make e2e            # kind のクラスタを作り (再利用)、チャートを導入して e2e を直列に実行する
+make e2e-handshake  # 集約層以外からの接続の拒否のみ (DPF の資格情報不要。e2e-up の後)
+make e2e-down       # kind のクラスタを破棄する
 ```

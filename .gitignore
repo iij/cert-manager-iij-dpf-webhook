@@ -6,3 +6,6 @@
 *.test
 *.out
 /dist/
+
+# 実環境での検証の kubeconfig (make e2e)
+/.e2e/

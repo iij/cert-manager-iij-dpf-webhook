@@ -8,6 +8,7 @@ GOVULNCHECK_VERSION   ?= v1.7.0
 GO_LICENSES_VERSION   ?= v2.0.1
 BETTERLEAKS_VERSION   ?= v1.9.0
 TRIVY_VERSION         ?= 0.75.0
+E2E_CERT_MANAGER_VERSION ?= v1.21.2
 
 GO          ?= go
 GOLANGCI    ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
@@ -29,7 +30,7 @@ RELEASE_LDFLAGS := -s -w -linkmode=external -extldflags=-static-pie \
 # 依存ライセンスの許容リスト (憲章「ライセンス」)。
 ALLOWED_LICENSES := Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ISC,MPL-2.0
 
-.PHONY: release-binary third-party-licenses image check-image scan-image all fmt fmt-check lint vuln test contract build spdx domain-string acme-endpoints changelog-test licenses secrets check
+.PHONY: release-binary third-party-licenses image check-image scan-image all fmt fmt-check lint vuln test contract build spdx domain-string acme-endpoints changelog-test licenses secrets check e2e e2e-up e2e-handshake e2e-test e2e-down
 
 all: check build
 
@@ -103,3 +104,33 @@ secrets:
 	$(BETTERLEAKS) git . --redact
 
 check: fmt-check spdx domain-string acme-endpoints changelog-test secrets licenses lint test
+
+# 実環境での検証 (憲章「実環境での検証」/ scripts/e2e-kind.sh)。kind のクラスタを作り、cert-manager と
+# 本チャートを導入し、実 DPF と検証用ゾーンに対する e2e を直列に実行する。CI (e2e.yml) も用いる。
+# DPF_API_TOKEN と DPF_TEST_ZONE (検証用ゾーン。本番ゾーンを使わない) を環境変数で与える。
+# DPF_API_TOKEN_2 / DPF_API_ENDPOINT / ACME_SERVER は任意。ACME サーバの既定はステージング環境。
+# クラスタは e2e-down まで残し、次の e2e で再利用する。E2E_RUN でテストを絞れる。
+E2E_KIND_CLUSTER   ?= dpf-e2e
+E2E_KUBECONFIG     ?= $(CURDIR)/.e2e/kubeconfig
+E2E_IMAGE          ?= cert-manager-iij-dpf-webhook:e2e
+E2E_LOCK_OWNER     ?= e2e-$(or $(GITHUB_RUN_ID),$(USER))
+E2E_US2_NAMESPACES ?= e2e-team-a,e2e-team-b
+E2E_ENV := E2E_KIND_CLUSTER=$(E2E_KIND_CLUSTER) E2E_KUBECONFIG=$(E2E_KUBECONFIG) E2E_IMAGE=$(E2E_IMAGE) \
+	E2E_CERT_MANAGER_VERSION=$(E2E_CERT_MANAGER_VERSION) E2E_LOCK_OWNER=$(E2E_LOCK_OWNER) \
+	E2E_US2_NAMESPACES=$(E2E_US2_NAMESPACES)
+
+e2e: e2e-up e2e-handshake e2e-test
+
+e2e-up:
+	$(MAKE) image IMAGE=$(E2E_IMAGE)
+	$(E2E_ENV) ./scripts/e2e-kind.sh up
+
+# 集約層を経由しない接続がハンドシェイクで拒否されること (T120)。DPF の資格情報を要さない。
+e2e-handshake:
+	$(E2E_ENV) ./scripts/e2e-kind.sh handshake
+
+e2e-test:
+	$(E2E_ENV) ./scripts/e2e-kind.sh test
+
+e2e-down:
+	$(E2E_ENV) ./scripts/e2e-kind.sh down

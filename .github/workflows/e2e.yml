@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # 実環境での検証 (憲章「実環境での検証」/ tasks.md T119, T120, T124)。
-# 実行ごとに kind のクラスタを作り、cert-manager v1.21.2 と、同じ実行で作ったイメージを用いた
-# 本チャートを導入する。検証用ゾーンを共有するため並列に実行せず、後続の実行を待たせる。
+# 実行ごとに kind のクラスタを作り、cert-manager と、同じ実行で作ったイメージを用いた本チャートを
+# 導入する。手順は手元と同じ Makefile の e2e-* ターゲット (scripts/e2e-kind.sh) を用い、版は Makefile
+# が持つ。検証用ゾーンを共有するため並列に実行せず、後続の実行を待たせる。
 # 証明書の取得まで確かめる e2e の ACME サーバは test/e2e/acmeserver が決める (既定はステージング
 # 環境)。本番環境の値を本ファイルに置かない。
 name: e2e
@@ -22,9 +23,10 @@ concurrency:
 
 env:
   HELM_VERSION: v4.2.2
-  CERT_MANAGER_VERSION: v1.21.2
-  IMAGE: cert-manager-iij-dpf-webhook:e2e
-  US2_NAMESPACES: e2e-team-a,e2e-team-b
+  E2E_IMAGE: cert-manager-iij-dpf-webhook:e2e
+  # e2e-* ターゲットの kubeconfig。後続の kubectl もこれを用いる。
+  KUBECONFIG: ${{ github.workspace }}/.e2e/kubeconfig
+  E2E_KUBECONFIG: ${{ github.workspace }}/.e2e/kubeconfig
 
 jobs:
   e2e:
@@ -41,45 +43,24 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: イメージのビルド
-        run: make image IMAGE="$IMAGE" REVISION="${GITHUB_SHA}"
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: クラスタの準備 (イメージのビルド・cert-manager と本チャートの導入)
+        env:
+          DPF_API_TOKEN: ${{ secrets.DPF_API_TOKEN }}
+        run: make e2e-up E2E_IMAGE="$E2E_IMAGE" REVISION="${GITHUB_SHA}"
 
       - name: 起動時の挙動 - 必須設定の不足で異常終了する
         run: |
           set +e
-          out="$(docker run --rm "$IMAGE" 2>&1)"
+          out="$(docker run --rm "$E2E_IMAGE" 2>&1)"
           code=$?
           set -e
           echo "$out"
           test "$code" -ne 0
           grep -q 'DPF_WEBHOOK_LOCK_OWNER is required' <<<"$out"
-
-      - uses: helm/kind-action@v1
-        with:
-          cluster_name: e2e
-
-      - name: cert-manager の導入
-        run: |
-          helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-            --version "$CERT_MANAGER_VERSION" --namespace cert-manager --create-namespace \
-            --set crds.enabled=true --wait
-
-      - name: 本チャートの導入
-        env:
-          DPF_API_TOKEN: ${{ secrets.DPF_API_TOKEN }}
-        run: |
-          kind load docker-image "$IMAGE" --name e2e
-          for ns in ${US2_NAMESPACES//,/ }; do kubectl create namespace "$ns"; done
-          kubectl -n cert-manager create secret generic dpf-token --from-literal=token="$DPF_API_TOKEN"
-          # kind の kube-apiserver はコントロールプレーンのノード上でホストネットワークで動く。
-          apiserver="$(docker inspect e2e-control-plane --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
-          helm install dpf-webhook ./deploy/chart --namespace cert-manager \
-            --set lockOwner="e2e-${GITHUB_RUN_ID}" \
-            --set image.repository="${IMAGE%%:*}" --set image.tag="${IMAGE##*:}" --set image.pullPolicy=Never \
-            --set "networkPolicy.kubeAPIServerCIDRs={${apiserver}/32}" \
-            --set "tokenSecrets.namespaces={${US2_NAMESPACES}}" \
-            --wait --timeout 5m
-          kubectl wait apiservice/v1alpha1.acme.dns-platform.jp --for=condition=Available --timeout=5m
 
       - name: 起動時の挙動 - webhook は平文で待ち受けない
         run: |
@@ -92,17 +73,8 @@ jobs:
 
       - name: クライアント証明書の検証 - 集約層以外からの接続をハンドシェイクで拒否する
         # FR-002 / SC-010 / T120。kube-apiserver を経由せず、コントロールプレーンのノードから
-        # Pod へ直接つなぐ。port-forward は、サーバが接続を切った際の RST で終了するため用いない。
-        run: |
-          # 集約層を経由した要求は受理される。
-          kubectl get --raw /apis/acme.dns-platform.jp/v1alpha1 >/dev/null
-          CGO_ENABLED=0 go test -c -tags e2e -o "$RUNNER_TEMP/e2e.test" ./test/e2e/
-          docker cp "$RUNNER_TEMP/e2e.test" e2e-control-plane:/e2e.test
-          pod_ip="$(kubectl -n cert-manager get pods \
-            -l app.kubernetes.io/name=cert-manager-iij-dpf-webhook,app.kubernetes.io/instance=dpf-webhook \
-            -o jsonpath='{.items[0].status.podIP}')"
-          docker exec -e E2E_WEBHOOK_ADDR="${pod_ip}:10443" e2e-control-plane \
-            /e2e.test -test.v -test.count=1 -test.run '^TestWebhookRequiresClientCertificate$'
+        # Pod へ直接つなぐ。
+        run: make e2e-handshake E2E_IMAGE="$E2E_IMAGE"
 
       - name: 実環境の検証 (直列に実行する)
         env:
@@ -110,12 +82,14 @@ jobs:
           DPF_API_TOKEN_2: ${{ secrets.DPF_API_TOKEN_2 }}
           DPF_TEST_ZONE: ${{ vars.DPF_TEST_ZONE }}
           DPF_API_ENDPOINT: ${{ vars.DPF_API_ENDPOINT }}
-          E2E_CLUSTER: "1"
-          E2E_US2_NAMESPACES: ${{ env.US2_NAMESPACES }}
-        run: go test -tags e2e -p 1 -count=1 -timeout 80m -v ./test/e2e/
+        run: make e2e-test E2E_IMAGE="$E2E_IMAGE"
 
       - name: 失敗時の記録
         if: failure()
         run: |
           kubectl -n cert-manager logs deploy/dpf-webhook --tail=500 || true
           kubectl get challenges,orders,certificates -A || true
+
+      - name: クラスタの破棄
+        if: always()
+        run: make e2e-down
