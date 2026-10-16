@@ -109,6 +109,47 @@ func (e *env) newSolver(t *testing.T, mutate func(*solver.Options)) *solver.Solv
 	return s
 }
 
+// 準備・後始末のゾーンロックは、取得できるまで lockRetry の間隔で待つ。dpf-go のロックは、
+// 直前の保持者の解放の後片付け (ロック用レコードの削除) が DPF で完了するまで取得できず、
+// 前の検証の直後に取得を試みると ErrStillLock になるためである。
+const (
+	lockRetry   = 2 * time.Second
+	lockTimeout = 5 * time.Minute
+)
+
+// setupContext は準備・後始末の打ち切りつきの context を返す。
+func setupContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// applier は準備に用いる ZoneApplier を返す。排他を取得できるまで待つ。
+func (e *env) applier(opts ...utils.Option) *utils.ZoneApplier {
+	return utils.NewZoneApplier(e.api.RecordsAPI, e.api.ZonesAPI, e.api.JobsAPI, e.zoneID,
+		utils.WithLockOptions(opts...), utils.WithHoldOptions(utils.WithLockWait(lockRetry)))
+}
+
+// removeRecord は name のレコードを検証用ゾーンから取り除く。前の実行の残り (期限前の記録) を
+// 消して、検証を同じ初期状態から始めるために用いる。
+func (e *env) removeRecord(t *testing.T, name string) {
+	t.Helper()
+	err := e.applier(utils.WithOwner("e2e-setup")).Apply(setupContext(t),
+		func(_ context.Context, rs []sdk.OverwriteRecordsInner) ([]sdk.OverwriteRecordsInner, error) {
+			out := rs[:0:0]
+			for _, r := range rs {
+				if r.Name != name {
+					out = append(out, r)
+				}
+			}
+			return out, nil
+		})
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+}
+
 // config は検証用ゾーンだけを許可する solver 設定である。
 func (e *env) config() string {
 	ep := e.endpoint

@@ -19,7 +19,7 @@ import (
 // 60 秒に収まることは求めない。記録は操作期限の既定 (5 分) の妥当性の根拠とする。
 func TestPremiseTiming(t *testing.T) {
 	e := loadEnv(t)
-	ctx := context.Background()
+	ctx := setupContext(t)
 
 	// 1b: アクセストークンでゾーンのラベルを読み書きできる。
 	before, _, err := e.api.ZonesAPI.GetZoneLabels(ctx, e.zoneID).Execute()
@@ -30,8 +30,9 @@ func TestPremiseTiming(t *testing.T) {
 
 	mu := utils.NewMutex(e.api.RecordsAPI, e.api.ZonesAPI, e.zoneID,
 		utils.WithOwner("e2e-timing"), utils.WithTTL(2*time.Minute))
+	// 前の検証の解放の後片付けを待つことがあるため、取得の時間は待ちを含む上限の目安である。
 	start := time.Now()
-	if err := mu.Lock(ctx); err != nil {
+	if err := mu.LockWait(ctx, lockRetry); err != nil {
 		t.Fatalf("Lock: %v", err)
 	}
 	lock := time.Since(start)
@@ -42,8 +43,7 @@ func TestPremiseTiming(t *testing.T) {
 	}
 	unlock := time.Since(start)
 
-	ap := utils.NewZoneApplier(e.api.RecordsAPI, e.api.ZonesAPI, e.api.JobsAPI, e.zoneID,
-		utils.WithLockOptions(utils.WithOwner("e2e-timing"), utils.WithTTL(2*time.Minute)))
+	ap := e.applier(utils.WithOwner("e2e-timing"), utils.WithTTL(2*time.Minute))
 	start = time.Now()
 	err = ap.Apply(ctx, func(_ context.Context, rs []sdk.OverwriteRecordsInner) ([]sdk.OverwriteRecordsInner, error) {
 		return rs, nil

@@ -19,12 +19,11 @@ import (
 // 変わらない。
 func TestPremiseNoCollateral(t *testing.T) {
 	e := loadEnv(t)
-	ctx := context.Background()
+	ctx := setupContext(t)
 	name := "e2e-collateral." + e.zone.String()
 
 	// TTL が null・ラベル付き・コメント付きの無関係なレコードを置く。
-	ap := utils.NewZoneApplier(e.api.RecordsAPI, e.api.ZonesAPI, e.api.JobsAPI, e.zoneID,
-		utils.WithLockOptions(utils.WithOwner("e2e-setup")))
+	ap := e.applier(utils.WithOwner("e2e-setup"))
 	err := ap.Apply(ctx, func(_ context.Context, rs []sdk.OverwriteRecordsInner) ([]sdk.OverwriteRecordsInner, error) {
 		out := rs[:0:0]
 		for _, r := range rs {

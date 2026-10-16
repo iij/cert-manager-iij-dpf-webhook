@@ -27,6 +27,8 @@ func TestUS1MultiCluster(t *testing.T) {
 	label := "_acme-challenge.e2e-multi"
 	name := label + "." + e.zone.String()
 	key := "multi-" + time.Now().UTC().Format("150405")
+	// 後片付けは記録を消さず期限 (1 時間) まで残すため、前の実行の記録を取り除いてから始める。
+	e.removeRecord(t, name)
 
 	a := e.newSolver(t, func(o *solver.Options) { o.LockOwner = "e2e-cluster-a" })
 	b := e.newSolver(t, func(o *solver.Options) { o.LockOwner = "e2e-cluster-b" })

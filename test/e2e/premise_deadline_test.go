@@ -21,11 +21,11 @@ import (
 // 解放されなかったロックは TTL の満了で失効し、他者が取得できる。
 func TestPremiseDeadline(t *testing.T) {
 	e := loadEnv(t)
-	ctx := context.Background()
+	ctx := setupContext(t)
 
 	holder := utils.NewMutex(e.api.RecordsAPI, e.api.ZonesAPI, e.zoneID,
 		utils.WithOwner("e2e-holder"), utils.WithTTL(40*time.Second))
-	if err := holder.Lock(ctx); err != nil {
+	if err := holder.LockWait(ctx, lockRetry); err != nil {
 		t.Fatalf("Lock: %v", err)
 	}
 	serial := e.soaSerial(t)
@@ -40,9 +40,12 @@ func TestPremiseDeadline(t *testing.T) {
 	}
 
 	// 保持者が解放しないまま TTL が満了すれば、他者が取得できる。
+	// solver が操作期限で打ち切った後片付けの完了を待つ余地として、取得の再試行を 30 秒まで許す。
 	time.Sleep(45 * time.Second)
 	other := utils.NewMutex(e.api.RecordsAPI, e.api.ZonesAPI, e.zoneID, utils.WithOwner("e2e-other"))
-	if err := other.Lock(ctx); err != nil {
+	otherCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := other.LockWait(otherCtx, lockRetry); err != nil {
 		t.Fatalf("TTL の満了後に取得できない: %v", err)
 	}
 	_ = other.Unlock(ctx)

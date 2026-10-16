@@ -59,13 +59,12 @@ func values(r *sdk.Record) []string {
 // 期間より古い RDATA は残らず (SC-006)、他者の RDATA と TTL は元のまま残る (SC-020)。
 func TestUS1ChallengeLifecycle(t *testing.T) {
 	e := loadEnv(t)
-	ctx := context.Background()
+	ctx := setupContext(t)
 	label := "_acme-challenge.e2e-us1"
 	name := label + "." + e.zone.String()
 
 	// 他者の RDATA を TTL 300 で置いておく。
-	ap := utils.NewZoneApplier(e.api.RecordsAPI, e.api.ZonesAPI, e.api.JobsAPI, e.zoneID,
-		utils.WithLockOptions(utils.WithOwner("e2e-setup")))
+	ap := e.applier(utils.WithOwner("e2e-setup"))
 	ttl := int32(300)
 	if err := ap.Apply(ctx, func(_ context.Context, rs []sdk.OverwriteRecordsInner) ([]sdk.OverwriteRecordsInner, error) {
 		out := rs[:0:0]
