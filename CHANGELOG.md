@@ -37,6 +37,11 @@
   (非 root・`restricted` を満たす。webhook はコンテナの 10443、healthz / metrics は 8080)、
   Service (443)、RBAC (Secret は `get` のみ、集約 API サーバの委譲認証、cert-manager による
   solver の呼び出し)。トークンの Secret は作らない
+- **webhook エンドポイントは、kube-apiserver の集約層が提示するクライアント証明書を必須とする。**
+  証明書を提示しない接続と、集約層向け CA (`kube-system/extension-apiserver-authentication` の
+  `requestheader-client-ca-file`) 以外で署名された証明書を提示する接続は、TLS ハンドシェイクの
+  段階で拒否する。拒否は `TLS handshake error` として警告のログに残す。CA が得られない間は
+  すべての接続を拒否する。`--tls-sni-cert-key` は受け付けない
 - コンテナイメージ (`ghcr.io/iij/cert-manager-iij-dpf-webhook`) と Helm チャート
   (`oci://ghcr.io/iij/charts`) をタグ付きリリースごとに公開する。イメージは `scratch` ベースで、
   バイナリは ASLR を有効にした静的な実行ファイル (C ライブラリ musl を静的にリンク)。CA 証明書を

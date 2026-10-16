@@ -181,7 +181,7 @@ SC-026)、タイムアウト後の再試行で収束すること (SC-027)、自�
 | 呼称は「IIJ DNSプラットフォームサービス」/「DPF」 | PASS | |
 | ドメイン名は `miekg/dns` で扱う | PASS | ゾーン取得は `utils.GetZoneFromName` (内部で `dns.IsSubDomain` / `dns.CountLabel`) の結果が `ResolvedZone` と正規化名で一致することを確かめる。`ResolvedFQDN` が配下にあることは `dns.IsSubDomain` で判定する。`domainFilters` の判定も `miekg/dns` で実装し `strings` を使わない |
 | APIService として実装 / 集約層から呼ばれる | PASS | |
-| クライアント証明書検証 / 平文で待ち受けない | **要対応** | 平文で待ち受けないこと、委譲認証による証明書の検証はフレームワークが提供する。**ただしフレームワーク (`k8s.io/apiserver`) はクライアント証明書を任意 (`tls.RequestClientCert`) とし、証明書の無い接続をハンドシェイクで拒否しない** (research.md §2.2 の記述は誤り)。実現方法を調査する (T120) |
+| クライアント証明書検証 / 平文で待ち受けない | PASS | フレームワーク (`k8s.io/apiserver`) はクライアント証明書を任意 (`tls.RequestClientCert`) とし、証明書の無い接続をハンドシェイクで拒否しない。このため webhook エンドポイントの待ち受けを自前で行い、requestheader CA による検証を必須とする (research.md D-22 / T120) |
 | RBAC は用途 1 と用途 2 に閉じる | PASS | research.md D-08 で一覧を確定 |
 | NetworkPolicy (v3.3.0) | PASS | 種類は k8s 標準 (既定) と Cilium。ingress は kube-apiserver と probe・スクレイプに限る。egress は既定で作らず、利用者が規則を与える (Technical Context) |
 | `scratch` / 非 root / `restricted` | PASS | |

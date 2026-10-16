@@ -270,7 +270,7 @@ Certificate がそれぞれのトークンで処理されること、および�
 - [X] T117 `.github/workflows/ci.yml` に憲章が求めるゲートを実装する: `betterleaks` による履歴のシークレット検査 / `gofmt -l ./...` が空 / SPDX ヘッダ / **ACME サーバの接続先の検査 (`scripts/check-acme-endpoints.sh`。本番環境と許可リスト外を拒否)** / `go build ./...` / `golangci-lint run` / `govulncheck ./...` / `go test ./...`
 - [X] T118 `.github/workflows/ci.yml` に契約テスト (T055) を追加する
 - [ ] T119 `.github/workflows/ci.yml` に既定設定での起動時挙動の検証を追加する (`domainFilters` 未設定で管理対象が空 / 必須設定の不足で異常終了 / webhook が平文で待ち受けない)。`cmd/webhook/main.go` の検証を兼ねる。**(実装時の注記)** `.github/workflows/e2e.yml` に置く (平文の検査はクラスタ上で行うため)。actionlint で検査したが未実行。管理対象が空の挙動は結合テスト (TestDiagnosticLogging) が確かめる
-- [ ] T120 `.github/workflows/ci.yml` に**クライアント証明書検証の検証**を追加する。証明書を提示しない接続と、集約層向け CA 以外で署名された証明書を提示する接続が、いずれも TLS ハンドシェイクで拒否されること (FR-002 / SC-010)
+- [X] T120 `.github/workflows/ci.yml` に**クライアント証明書検証の検証**を追加する。証明書を提示しない接続と、集約層向け CA 以外で署名された証明書を提示する接続が、いずれも TLS ハンドシェイクで拒否されること (FR-002 / SC-010)。**(実装時の注記)** フレームワークは証明書を任意とするため、待ち受けを自前で行う (`internal/serving`、research.md D-22)。検証は `.github/workflows/e2e.yml` に置き、コントロールプレーンのノードから Pod へ直接つなぐ (port-forward は RST で終了するため用いない)。単体テストは `internal/serving` に置く。kind で確かめた
 - [X] T121 `.github/workflows/ci.yml` にトークン取得元 namespace 判定の検証を追加する。`AllowAmbientCredentials` が `false` の要求が `ResourceNamespace` 以外を読めないこと、**RBAC 上は読める状態でも読まないこと**
 - [X] T122 `.github/workflows/ci.yml` に依存ライセンス検査と、イメージへのライセンス同梱・OCI アノテーション・`scratch`・ASLR の検証を追加する
 - [X] T123 `.github/workflows/ci.yml` に、利用者に見える契約に対応するパス (`internal/solver/config.go` / `deploy/chart/**` / `contracts/solver-config.schema.json`) が変更された PR で `CHANGELOG.md` の更新を求める検査を追加する。**判定は補助でありレビューの代替ではない** (憲章のレビュー観点)

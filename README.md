@@ -148,7 +148,9 @@ namespace を `tokenSecrets.namespaces` に加えてください。
 
 NetworkPolicy で表しきれない残りは、クライアント証明書の検証が担います。本サービスは
 kube-apiserver の集約層が提示するクライアント証明書を、クラスタの集約層向け CA
-(`kube-system/extension-apiserver-authentication`) で検証し、それ以外からの要求を拒否します。
+(`kube-system/extension-apiserver-authentication` の `requestheader-client-ca-file`) で検証します。
+証明書を提示しない接続と、それ以外の CA で署名された証明書を提示する接続は、TLS ハンドシェイクの
+段階で拒否し、要求に至りません。拒否した接続は `TLS handshake error` として警告のログに残ります。
 
 #### egress を制限する場合
 

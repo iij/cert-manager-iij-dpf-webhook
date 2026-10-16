@@ -23,6 +23,7 @@ D-xx / tasks.md)。判断を変える場合は research.md に追記する。
 | `internal/challenge/` | 何を書くかの判断 (計画・期限・記録)。DPF に依存しない |
 | `internal/dpf/` | DPF との境界。`dpf-go` の型とエラーはここから外へ出さない。要求・応答の記録もここで行う |
 | `internal/dpf/dpftest/` | 模擬 DPF (テスト用) |
+| `internal/serving/` | webhook エンドポイントの TLS の待ち受け。クライアント証明書を必須とする (D-22) |
 | `internal/tokensource/` | Kubernetes の Secret からトークンを読む (`dpf-go/misc/k8s`) |
 | `internal/dnsname/` / `internal/zonefilter/` | ドメイン名の表現と `domainFilters` の判定 |
 | `internal/observability/` | ログ・メトリクス・トレース・OTLP・healthz |

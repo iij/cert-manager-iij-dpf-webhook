@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/cert-manager/cert-manager/pkg/acme/webhook/cmd"
 	// scratch には証明書ストアが無い。DPF API と OTLP の送出先の TLS 検証に用いる CA 証明書を
 	// バイナリに備える (システムの証明書ストアが無い場合にのみ用いられる)。
 	_ "golang.org/x/crypto/x509roots/fallback"
@@ -71,5 +70,9 @@ func main() {
 		}
 	}()
 
-	cmd.RunWebhookServer(groupName, s)
+	// webhook エンドポイントはクライアント証明書を必須として待ち受ける (FR-002 / D-22)。
+	if err := runWebhookServer(log, s); err != nil {
+		log.Error("webhook server stopped", "error", err)
+		os.Exit(1)
+	}
 }
