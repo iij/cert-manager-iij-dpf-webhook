@@ -44,7 +44,9 @@ func (s secretsFor) Get(_ context.Context, _, name string, _ metav1.GetOptions) 
 func TestUS3DiagnosisFromLogs(t *testing.T) {
 	e := loadEnv(t)
 	markers := map[string]string{
-		"無効なトークン":   "status=401",
+		// DPF は無効なトークンに 401 ではなく 400 ParameterError (attribute access_token) を返す
+		// (DPF-API リファレンス 2.3)。
+		"無効なトークン":   "access_token",
 		"Secret 不在": dpf.ErrSecretNotFound.Error(),
 		"key 不在":    dpf.ErrSecretKeyNotFound.Error(),
 		"ゾーン不在":     dpf.ErrZoneNotFound.Error(),

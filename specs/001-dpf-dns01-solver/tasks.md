@@ -230,7 +230,7 @@ Certificate がそれぞれのトークンで処理されること、および�
 - [X] T097 [P] [US3] `internal/observability/metrics.go` に Prometheus 形式と OpenTelemetry 形式のメトリクスを実装する。両形式が同一の計測値を表すこと (FR-090)
 - [X] T098 [P] [US3] `internal/observability/trace.go` に OpenTelemetry のトレースを実装する。要求の受信から DPF 呼び出しまでを 1 トレースとする (FR-091)
 - [X] T099 [US3] `internal/observability/` に OTLP 送出 (ログ・メトリクス・トレース。gRPC と HTTP) を実装する。**既定で無効**とし、送出先が設定された場合にのみ有効化する。TLS 証明書の検証を既定で有効とする。送出失敗で DNS の処理を停止させない
-- [ ] T100 [US3] `test/e2e/us3_diagnosis_test.go` に、5 種類の失敗 (無効なトークン / Secret 不在 / key 不在 / ゾーン不在 / DPF 到達不能) をログのみで判別できることの検証を書く (SC-009)。**(実装時の注記)** 無効なトークンの目印は DPF が 401 を返すことを前提とする。実環境で応答の状態コードを確かめる
+- [ ] T100 [US3] `test/e2e/us3_diagnosis_test.go` に、5 種類の失敗 (無効なトークン / Secret 不在 / key 不在 / ゾーン不在 / DPF 到達不能) をログのみで判別できることの検証を書く (SC-009)。**(実装時の注記)** 無効なトークンの目印は DPF が 401 を返すことを前提としていたが、実環境では `400 ParameterError` (`attribute: access_token`) が返った (DPF-API リファレンス 2.3 の記載とも一致する)。目印を `access_token` に改めた
 - [X] T101 [US3] `CHANGELOG.md` の `Unreleased` に US3 が加えた利用者に見える挙動を記録する。**ログ・メトリクス・トレースとして出力する項目**と、OTLP 送出が既定で無効であることが対象 (憲章が「利用者に見える挙動」にテレメトリを含めるため)
 
 **Checkpoint E**: 3 つのストーリーがすべて成立する

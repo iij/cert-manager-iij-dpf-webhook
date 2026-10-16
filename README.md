@@ -249,7 +249,8 @@ kubectl -n cert-manager logs deploy/dpf-webhook | grep '"challenge failed"'
 | ログに現れるもの | 原因 |
 |---|---|
 | `token secret not found` / `token key not found in secret` / `token secret value is empty` | トークンの Secret の名前・キー・値 (`failure` は `permanent`) |
-| `DPF API error response` (`"status":401` など) | トークンが無効、または DPF が要求を拒否した (本文の全文と `request_id` が残る) |
+| `DPF API error response` (本文に `"attribute":"access_token"`) | トークンが無効 (DPF は `400 ParameterError` を返す。本文の全文と `request_id` が残る) |
+| `DPF API error response` (上記以外) | DPF が要求を拒否した (本文の全文と `request_id` が残る) |
 | `delegated zone (ResolvedZone) not found in DPF` | `resolvedZone` のゾーンが DPF に無い |
 | `zone is not allowed by domainFilters` | `domainFilters` がゾーンを許していない |
 | `DPF API request failed` / `DPF API is unavailable` | DPF に到達できない (`failure` は `temporary`) |
