@@ -11,6 +11,7 @@
 #
 # kubeconfig は E2E_KUBECONFIG に置き、利用者の kubeconfig と現在のコンテキストを変えない。
 # トークンはコマンドラインに置かない (プロセスの一覧に現れるため)。
+# HTTPS_PROXY (と HTTP_PROXY) がある場合は、cert-manager の Pod にもプロキシを設定する。
 set -euo pipefail
 
 : "${E2E_KIND_CLUSTER:?}" "${E2E_KUBECONFIG:?}" "${E2E_IMAGE:?}" "${E2E_CERT_MANAGER_VERSION:?}"
@@ -38,6 +39,28 @@ wait_aggregated() {
 	done
 }
 
+# proxy_values は cert-manager の Pod に与えるプロキシの設定を値ファイルに書き、その名前を返す。
+# 外部 (ACME サーバ) へプロキシを経由しないと届かない環境のため、HTTPS_PROXY がある場合に限り
+# 与える。NO_PROXY は kind がノードに与えた値 (利用者の NO_PROXY にクラスタの範囲を加えたもの) を
+# 用い、kube-apiserver などクラスタ内への接続をプロキシに向けない。
+proxy_values() {
+	local f https http no
+	f="$(dirname "$E2E_KUBECONFIG")/cert-manager-proxy.yaml"
+	https="${HTTPS_PROXY:-${https_proxy:-}}"
+	if [[ -z "$https" ]]; then
+		printf '{}\n' >"$f"
+		printf '%s' "$f"
+		return
+	fi
+	http="${HTTP_PROXY:-${http_proxy:-$https}}"
+	no="$(docker exec "$node" printenv NO_PROXY || true)"
+	: >"$f"
+	chmod 600 "$f"
+	printf 'http_proxy: "%s"\nhttps_proxy: "%s"\nno_proxy: "%s"\n' "$http" "$https" "$no" >"$f"
+	log "HTTPS_PROXY があるため、cert-manager にプロキシを設定する"
+	printf '%s' "$f"
+}
+
 up() {
 	mkdir -p "$(dirname "$E2E_KUBECONFIG")"
 	if kind get clusters | grep -qx "$E2E_KIND_CLUSTER"; then
@@ -48,12 +71,10 @@ up() {
 		kind create cluster --name "$E2E_KIND_CLUSTER" --kubeconfig "$E2E_KUBECONFIG" --wait 3m
 	fi
 
-	if ! helm status cert-manager -n cert-manager >/dev/null 2>&1; then
-		log "cert-manager ${E2E_CERT_MANAGER_VERSION} を導入する"
-		helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-			--version "$E2E_CERT_MANAGER_VERSION" --namespace cert-manager --create-namespace \
-			--set crds.enabled=true --wait
-	fi
+	log "cert-manager ${E2E_CERT_MANAGER_VERSION} を導入する"
+	helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+		--version "$E2E_CERT_MANAGER_VERSION" --namespace cert-manager --create-namespace \
+		--set crds.enabled=true -f "$(proxy_values)" --wait
 
 	log "イメージ ${E2E_IMAGE} を読み込む"
 	kind load docker-image "$E2E_IMAGE" --name "$E2E_KIND_CLUSTER"
