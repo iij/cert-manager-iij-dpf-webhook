@@ -25,6 +25,19 @@ selector="app.kubernetes.io/name=cert-manager-iij-dpf-webhook,app.kubernetes.io/
 
 log() { printf '==> %s\n' "$*" >&2; }
 
+# wait_aggregated は集約層を経由した要求が成功するまで待つ。Pod の入れ替え直後は APIService の
+# Available が入れ替え前の値のまま残り、kube-apiserver が新しい Pod へ切り替えるまで 503 を返す。
+wait_aggregated() {
+	local deadline=$((SECONDS + 120))
+	until kubectl get --raw /apis/acme.dns-platform.jp/v1alpha1 >/dev/null 2>&1; do
+		if ((SECONDS >= deadline)); then
+			kubectl get --raw /apis/acme.dns-platform.jp/v1alpha1 >/dev/null
+			return 1
+		fi
+		sleep 2
+	done
+}
+
 up() {
 	mkdir -p "$(dirname "$E2E_KUBECONFIG")"
 	if kind get clusters | grep -qx "$E2E_KIND_CLUSTER"; then
@@ -69,11 +82,12 @@ up() {
 	kubectl -n "$namespace" rollout restart "deploy/${release}" >/dev/null
 	kubectl -n "$namespace" rollout status "deploy/${release}" --timeout 5m
 	kubectl wait apiservice/v1alpha1.acme.dns-platform.jp --for=condition=Available --timeout=5m
+	wait_aggregated
 }
 
 handshake() {
 	log "集約層を経由した要求が受理されることを確かめる"
-	kubectl get --raw /apis/acme.dns-platform.jp/v1alpha1 >/dev/null
+	wait_aggregated
 
 	# コントロールプレーンのノードから Pod へ直接つなぐ。port-forward は、サーバが接続を
 	# 切った際の RST で終了するため用いない。
