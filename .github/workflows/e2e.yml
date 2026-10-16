@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# 実環境での検証 (憲章「実環境での検証」/ tasks.md T119, T124)。
+# 実環境での検証 (憲章「実環境での検証」/ tasks.md T119, T120, T124)。
 # 実行ごとに kind のクラスタを作り、cert-manager v1.21.2 と、同じ実行で作ったイメージを用いた
 # 本チャートを導入する。検証用ゾーンを共有するため並列に実行せず、後続の実行を待たせる。
 # 証明書の取得まで確かめる e2e の ACME サーバは test/e2e/acmeserver が決める (既定はステージング
@@ -89,6 +89,20 @@ jobs:
           echo "$body"
           # TLS の待ち受けに平文で接続すると、Go の TLS サーバは要求を処理せずこの応答を返す。
           grep -q 'HTTP request to an HTTPS server' <<<"$body"
+
+      - name: クライアント証明書の検証 - 集約層以外からの接続をハンドシェイクで拒否する
+        # FR-002 / SC-010 / T120。kube-apiserver を経由せず、コントロールプレーンのノードから
+        # Pod へ直接つなぐ。port-forward は、サーバが接続を切った際の RST で終了するため用いない。
+        run: |
+          # 集約層を経由した要求は受理される。
+          kubectl get --raw /apis/acme.dns-platform.jp/v1alpha1 >/dev/null
+          CGO_ENABLED=0 go test -c -tags e2e -o "$RUNNER_TEMP/e2e.test" ./test/e2e/
+          docker cp "$RUNNER_TEMP/e2e.test" e2e-control-plane:/e2e.test
+          pod_ip="$(kubectl -n cert-manager get pods \
+            -l app.kubernetes.io/name=cert-manager-iij-dpf-webhook,app.kubernetes.io/instance=dpf-webhook \
+            -o jsonpath='{.items[0].status.podIP}')"
+          docker exec -e E2E_WEBHOOK_ADDR="${pod_ip}:10443" e2e-control-plane \
+            /e2e.test -test.v -test.count=1 -test.run '^TestWebhookRequiresClientCertificate$'
 
       - name: 実環境の検証 (直列に実行する)
         env:
