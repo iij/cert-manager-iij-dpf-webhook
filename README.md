@@ -232,7 +232,7 @@ networkPolicy:
 - トークンの取得の失敗は、ログの `failure` に分類を記録します。Secret が無い・キーが無い・値が
   空・読む権限が無い場合は `permanent` で、Secret を直すまで成功しません (1 回の要求のなかでは繰り返し
   読みません)。Kubernetes API に到達できない場合は `temporary` で、1 回の読み出しにつき 3 回まで
-  試します。Secret の作成や修正、トークンのローテーションは、再起動しなくても次の要求から使われます。
+  試します。DPF がトークンを無効と応答した場合も `permanent` です。Secret の作成や修正、トークンのローテーションは、再起動しなくても次の要求から使われます。
 - 1 回の処理が kube-apiserver の要求のタイムアウト (60 秒) を越えることがあります。その場合も
   処理は続き、cert-manager の再試行で完了します (操作期限の既定は 5 分)。
 
@@ -249,7 +249,7 @@ kubectl -n cert-manager logs deploy/dpf-webhook | grep '"challenge failed"'
 | ログに現れるもの | 原因 |
 |---|---|
 | `token secret not found` / `token key not found in secret` / `token secret value is empty` | トークンの Secret の名前・キー・値 (`failure` は `permanent`) |
-| `DPF API error response` (本文に `"attribute":"access_token"`) | トークンが無効 (DPF は `400 ParameterError` を返す。本文の全文と `request_id` が残る) |
+| `DPF API error response` (本文に `"attribute":"access_token"`) | トークンが無効 (DPF は `400 ParameterError` を返す。`failure` は `permanent`。本文の全文と `request_id` が残る) |
 | `DPF API error response` (上記以外) | DPF が要求を拒否した (本文の全文と `request_id` が残る) |
 | `delegated zone (ResolvedZone) not found in DPF` | `resolvedZone` のゾーンが DPF に無い |
 | `zone is not allowed by domainFilters` | `domainFilters` がゾーンを許していない |

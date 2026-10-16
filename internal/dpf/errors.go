@@ -9,6 +9,7 @@ package dpf
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -132,7 +133,32 @@ func Convert(err error) error {
 	var apiErr *sdk.GenericOpenAPIError
 	if errors.As(err, &apiErr) {
 		// エラー応答の本文を全文残す。問い合わせ用の request_id を失わない (FR-088)。
-		return newError(Temporary, ErrAPI, "%s: %s", msg, string(apiErr.Body()))
+		kind := Temporary
+		if isInvalidToken(apiErr.Body()) {
+			kind = Permanent
+		}
+		return newError(kind, ErrAPI, "%s: %s", msg, string(apiErr.Body()))
 	}
 	return newError(Temporary, ErrUnavailable, "%s", msg)
+}
+
+// isInvalidToken はエラー応答の本文が、トークンの誤りを表すかを返す。DPF は無効なトークンに
+// 400 ParameterError (attribute access_token) を返す (DPF-API リファレンス 2.3 / research.md D-23)。
+// 本文を解釈できない場合は false とする。
+func isInvalidToken(body []byte) bool {
+	var e struct {
+		ErrorType    string `json:"error_type"`
+		ErrorDetails []struct {
+			Attribute string `json:"attribute"`
+		} `json:"error_details"`
+	}
+	if json.Unmarshal(body, &e) != nil || e.ErrorType != "ParameterError" {
+		return false
+	}
+	for _, d := range e.ErrorDetails {
+		if d.Attribute == "access_token" {
+			return true
+		}
+	}
+	return false
 }

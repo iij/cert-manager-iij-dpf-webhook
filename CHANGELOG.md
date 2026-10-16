@@ -67,6 +67,8 @@
 - トークンの取得の失敗の分類: Secret 不在・key 不在・値が空・読み取り権限なしは恒久的な失敗とし、
   再試行しない。Kubernetes API への到達失敗などは一時的な失敗とし、1 回の読み出しにつき
   3 回まで試行する。分類はログの `failure` (`permanent` / `temporary`) に記録する
+- DPF がトークンを無効と応答した場合 (`400 ParameterError`、`attribute` が `access_token`) は
+  恒久的な失敗とする。その他の DPF のエラー応答は一時的な失敗とする
 - トークンは要求のたびに Secret から読む。ローテーションや Secret の作成・修正は再起動なしに反映される
 - ログ (JSON、標準出力。レベルは `DPF_WEBHOOK_LOG_LEVEL`)。要求ごとに `uid`・`action`・`fqdn`・
   `resolvedZone` を付ける。主な記録:
