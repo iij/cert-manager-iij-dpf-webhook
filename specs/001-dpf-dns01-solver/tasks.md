@@ -71,8 +71,8 @@ description: "Task list for DPF DNS01 Challenge Solver"
 ### 設計前提の検証 (Spike)
 
 - [ ] T012 `test/e2e/premise_timing_test.go` を作成し、検証用ゾーンに対して排他の取得の各段 (一時レコードの作成・ゾーンのラベルの書き込み・一時レコードの取り消し)・反映・解放の所要時間を個別に計測する。**60 秒に収まることは求めない。**計測は操作期限の既定 (5 分) の妥当性の根拠とする。あわせて**ジョブ待ちを除いた本サービス自身のオーバーヘッド** (SC-003)、ゾーンのレコード数と所要時間の関係、**アクセストークンでゾーンのラベルを読み書きできること**、**別トークンの 2 プロセス間で同時取得が起こらないこと**を記録する (research.md §4 1 / 1b / 5a)
-- [ ] T013 `test/e2e/premise_convergence_test.go` を作成し、**1 回の処理が 60 秒 (`k8s.io/apiserver@v0.36.2/pkg/server/config.go:453` の `RequestTimeout` 既定) を越える場合に、呼び出し元がタイムアウトしたのちも処理が完了し、再試行が変更 API を呼ばずに成功すること**を確認する。先の処理が走行中に来た再試行が排他を待ち、`ErrSkipApply` で反映を省くことも含める (research.md D-15 / SC-027)
-- [ ] T014 `test/e2e/premise_deadline_test.go` を作成し、操作期限に達した場合に**操作期限を越えて DPF への書き込みが行われないこと**と、ロックが TTL の満了で失効することを確認する。`RunLocked` の解放が期限切れの context を用いるため解放は失敗する (research.md D-15 / SC-004 / SC-013)
+- [X] T013 `test/e2e/premise_convergence_test.go` を作成し、**1 回の処理が 60 秒 (`k8s.io/apiserver@v0.36.2/pkg/server/config.go:453` の `RequestTimeout` 既定) を越える場合に、呼び出し元がタイムアウトしたのちも処理が完了し、再試行が変更 API を呼ばずに成功すること**を確認する。先の処理が走行中に来た再試行が排他を待ち、`ErrSkipApply` で反映を省くことも含める (research.md D-15 / SC-027)
+- [X] T014 `test/e2e/premise_deadline_test.go` を作成し、操作期限に達した場合に**操作期限を越えて DPF への書き込みが行われないこと**と、ロックが TTL の満了で失効することを確認する。`RunLocked` の解放が期限切れの context を用いるため解放は失敗する (research.md D-15 / SC-004 / SC-013)
 - [ ] T015 `test/e2e/premise_nocollateral_test.go` を作成し、TTL が null のもの・ラベル付き・コメント付きを含む無関係なレコードを検証用ゾーンに置いたうえで `ZoneApplier.Apply` を実行し、**RDATA・TTL・ラベル・コメントのいずれも変わらないこと**と、SOA および Zone Apex NS が置き換わらないことを確認する (FR-055 / FR-056)
 
 **Checkpoint A**: T013/T015 が通らない場合、research.md の D-13 / D-15 を見直してから先へ進む
@@ -168,8 +168,8 @@ DPF 管理下のドメインの証明書を取得できる
 - [X] T072 [P] [US1] `deploy/chart/values.yaml` に既定値を定義する。**既定は拒否側**。トークンの Secret をチャートが作らない
 - [X] T073 [P] [US1] `test/e2e/acmeserver/acmeserver_test.go` に、e2e が用いる ACME サーバの解決のテストを書く (e2e のビルドタグを付けず通常の `go test` で走る)。**`ACME_SERVER` が未設定なら Let's Encrypt のステージング環境を返すこと**、許可リストの値をそのまま返すこと、**本番環境の一覧の値や未知の値ではエラーを返し e2e を開始しないこと** (憲章「ACME サーバの利用」/ research.md D-17) → T074
 - [X] T074 [US1] `test/e2e/acmeserver/acmeserver.go` に、`ACME_SERVER` から e2e の ACME サーバを解決する処理を実装する。未設定時の既定はステージング環境とし、本番環境へ既定で接続しない
-- [ ] T075 [US1] `test/e2e/us1_clusterissuer_test.go` に、実 DPF と検証用ゾーンに対する通し検証を書く。**ClusterIssuer の ACME サーバは `test/e2e/acmeserver` で解決した値 (既定は Let's Encrypt のステージング環境) とし、本番環境を用いない。**提示 → 反映で証明書が発行されること、**後片付けの時点では RDATA とラベルが残り、期限を過ぎてから同一の名前を操作すると回収されること** (SC-024)、変更履歴の `Description` から配備を判別できること (SC-012) を確認する。あわせて、**証明書の更新を 10 回繰り返したのちに残るチャレンジ用 RDATA が猶予の期間に生じたもののみであること** (SC-006) と、**本サービス以外の RDATA を持つ TXT レコードに対して提示と後片付けを 10 回繰り返しても当初の RDATA と TTL が元のまま残ること** (SC-020) を確認する
-- [ ] T076 [US1] `test/e2e/us1_multicluster_test.go` に、**異なるロックオーナーを持つ 2 つの配備**から (ACME サーバは `test/e2e/acmeserver` で解決した値。本番環境を用いない)、同一の ACME アカウントで同一の名前の証明書を同時に取得する検証を書く。両方の証明書が取得できること、チャレンジレコードのラベルが 1 件であること、一方の後片付けで他方の RDATA が消えないこと (SC-021 / quickstart.md §8)。配備は同一クラスタ内の別 namespace で模してよい。**(実装時の注記)** APIService は 1 つの API グループにつき 1 つしか登録できず同一クラスタに 2 つの配備を置けないため、ロックオーナーの異なる 2 つの solver で模す
+- [X] T075 [US1] `test/e2e/us1_clusterissuer_test.go` に、実 DPF と検証用ゾーンに対する通し検証を書く。**ClusterIssuer の ACME サーバは `test/e2e/acmeserver` で解決した値 (既定は Let's Encrypt のステージング環境) とし、本番環境を用いない。**提示 → 反映で証明書が発行されること、**後片付けの時点では RDATA とラベルが残り、期限を過ぎてから同一の名前を操作すると回収されること** (SC-024)、変更履歴の `Description` から配備を判別できること (SC-012) を確認する。あわせて、**証明書の更新を 10 回繰り返したのちに残るチャレンジ用 RDATA が猶予の期間に生じたもののみであること** (SC-006) と、**本サービス以外の RDATA を持つ TXT レコードに対して提示と後片付けを 10 回繰り返しても当初の RDATA と TTL が元のまま残ること** (SC-020) を確認する
+- [X] T076 [US1] `test/e2e/us1_multicluster_test.go` に、**異なるロックオーナーを持つ 2 つの配備**から (ACME サーバは `test/e2e/acmeserver` で解決した値。本番環境を用いない)、同一の ACME アカウントで同一の名前の証明書を同時に取得する検証を書く。両方の証明書が取得できること、チャレンジレコードのラベルが 1 件であること、一方の後片付けで他方の RDATA が消えないこと (SC-021 / quickstart.md §8)。配備は同一クラスタ内の別 namespace で模してよい。**(実装時の注記)** APIService は 1 つの API グループにつき 1 つしか登録できず同一クラスタに 2 つの配備を置けないため、ロックオーナーの異なる 2 つの solver で模す
 - [X] T077 [US1] `CHANGELOG.md` の `Unreleased` に US1 が加えた**利用者に見える挙動**を記録する。solver 設定のスキーマ (`endpoint` / `tokenSecretRef` / `domainFilters`)、groupName と solverName、チャートが生成するリソースと RBAC、ゾーン反映の Description の形式、**使用済みの RDATA が期限まで残ること**、**同じゾーンを触る他のプログラムも `dpf-go` v0.6.0 以降にそろえる必要があること**が対象 (憲章「変更の記録」)
 - [X] T078 [US1] `README.md` に US1 時点の導入手順を記載し、`CHANGELOG.md` の記載と食い違いがないことを確認する
 
@@ -199,7 +199,7 @@ Certificate がそれぞれのトークンで処理されること、および�
 - [X] T084 [US2] `internal/solver/config.go` に `AllowAmbientCredentials` による取得元 namespace の決定を実装する。`false` で他 namespace が指定された場合は失敗させ、`ResourceNamespace` へ読み替えない (FR-006〜007)
 - [X] T085 [US2] `internal/tokensource/provider.go` に恒久的／一時的な失敗の分類を実装する。`misc/k8s` のエラー型で判別する (D-09 / FR-008〜010)
 - [X] T086 [US2] `deploy/chart/templates/rbac.yaml` に、対象 namespace を列挙して Role/RoleBinding のみで構成できる形を追加する。ClusterRole による全 namespace への付与を唯一の選択肢としない (D-08)
-- [ ] T087 [US2] `test/e2e/us2_namespaced_test.go` に、2 つの namespace を用いた実環境検証を書く。**(実装時の注記)** クラスタの検証は、`tokenSecrets.namespaces` に `E2E_US2_NAMESPACES` (既定 `e2e-team-a,e2e-team-b`) を与えてチャートを導入し、その namespace を作っておく必要がある (T124)
+- [X] T087 [US2] `test/e2e/us2_namespaced_test.go` に、2 つの namespace を用いた実環境検証を書く。**(実装時の注記)** クラスタの検証は、`tokenSecrets.namespaces` に `E2E_US2_NAMESPACES` (既定 `e2e-team-a,e2e-team-b`) を与えてチャートを導入し、その namespace を作っておく必要がある (T124)
 - [X] T088 [US2] `CHANGELOG.md` の `Unreleased` に US2 が加えた利用者に見える挙動を記録する。`AllowAmbientCredentials` による取得元 namespace の決定、`tokenSecretRef.namespace` の扱い、恒久的／一時的な失敗の分類、namespace を列挙した RBAC の構成が対象
 
 **Checkpoint D**: US1 と US2 が独立に成立する
