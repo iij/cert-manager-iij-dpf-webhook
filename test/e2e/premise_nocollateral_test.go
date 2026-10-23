@@ -7,6 +7,7 @@ package e2e
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,8 +68,31 @@ func (e *env) snapshot(t *testing.T) map[string]string {
 		if len(r.Name) >= len("_acme-challenge") && r.Name[:len("_acme-challenge")] == "_acme-challenge" {
 			continue
 		}
+		if r.Rrtype == sdk.RECORDSRRTYPE_SOA {
+			r = withoutSerial(r)
+		}
 		b, _ := r.MarshalJSON()
 		out[r.Name+"/"+string(r.Rrtype)] = string(b)
 	}
 	return out
+}
+
+// withoutSerial は SOA から、反映のたびに DPF が改める値 (シリアルとレコードの ID) を除く。
+// DPF はゾーンへの反映ごとにシリアルを進め、SOA のレコードを作り直す。本サービスが SOA を
+// 変えたのではないため、FR-056 の比較から外す。
+func withoutSerial(r sdk.Record) sdk.Record {
+	r.Id = ""
+	rdata := make([]sdk.RecordsRdataInner, len(r.Rdata))
+	for i, d := range r.Rdata {
+		if d.Value != nil {
+			f := strings.Fields(*d.Value) // domain-string: SOA の RDATA を欄に分ける
+			if len(f) == 7 {
+				f[2] = "-"
+			}
+			d.Value = sdk.PtrString(strings.Join(f, " ")) // domain-string: SOA の RDATA を組み直す
+		}
+		rdata[i] = d
+	}
+	r.Rdata = rdata
+	return r
 }
