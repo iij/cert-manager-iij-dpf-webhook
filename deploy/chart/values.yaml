@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 既定は拒否側である (憲章 原則 VI)。変更してよいゾーンは Issuer / ClusterIssuer の
+# domainFilters で与え、空ならいかなるゾーンも変更しない。
+# トークンの Secret は本チャートが作らない。利用者が作成した Secret を参照する。
+
+# groupName は solver の API グループ。本サービスは acme.dns-platform.jp で待ち受けるため変更しない。
+# Issuer / ClusterIssuer の groupName と一致させる。
+groupName: acme.dns-platform.jp
+
+# lockOwner はゾーンロックの保持者 (必須)。複数のクラスタが同じゾーンを更新する場合に
+# どの配備かを区別できる値にする。1〜32 文字、英数字と . - _ のみ。
+lockOwner: ""
+
+# certManager は cert-manager 本体の配置。cert-manager の ServiceAccount に solver の
+# 呼び出しを許可するために用いる。
+certManager:
+  namespace: cert-manager
+  serviceAccountName: cert-manager
+
+# tokenSecrets はトークンの Secret を get できる namespace である。namespace ごとに
+# Role/RoleBinding を作る (ClusterRole による全 namespace への付与はしない)。
+tokenSecrets:
+  # 本 Pod の namespace。ClusterIssuer が tokenSecretRef.namespace を省略したときの取得元である。
+  # ClusterIssuer を使わない構成では false にする。
+  releaseNamespace: true
+  # namespace 限定の Issuer を置く namespace (Issuer は自身の namespace の Secret のみを読む)。
+  # ClusterIssuer の tokenSecretRef.namespace が本 Pod の namespace 以外を指す場合も、その
+  # namespace をここに加える。
+  namespaces: []
+
+image:
+  repository: ghcr.io/iij/cert-manager-iij-dpf-webhook
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# 配備単位の設定 (省略時はサービスの既定値)。
+logLevel: ""
+expireGrace: ""
+expireThreshold: ""
+operationDeadline: ""
+lockTTL: ""
+lockWait: ""
+
+# otlp は OpenTelemetry (OTLP) の送出先。既定で無効であり、endpoint を与えた場合にのみ
+# ログ・メトリクス・トレースを送出する。protocol は grpc または http/protobuf (省略時)。
+# 送出先の TLS 証明書は検証する。Prometheus 形式のメトリクス (/metrics) と標準出力のログは
+# これと関係なく常に出力する。
+otlp:
+  endpoint: ""
+  protocol: ""
+
+# networkPolicy は到達範囲の制限である (README の「NetworkPolicy」を参照)。
+networkPolicy:
+  # type はポリシーの種類。kubernetes (networking.k8s.io/v1 の NetworkPolicy) または
+  # cilium (cilium.io/v2 の CiliumNetworkPolicy)。
+  type: kubernetes
+  # kubeAPIServerCIDRs は kube-apiserver の送信元の CIDR (type=kubernetes では必須)。
+  # webhook ポートへの ingress をこれに限る。cilium では kube-apiserver のエンティティを用いる。
+  kubeAPIServerCIDRs: []
+  # exposedFrom は exposed ポート (healthz / metrics。8080) へのスクレイプなどの送信元である。
+  # kubernetes では NetworkPolicyPeer の一覧、cilium では ingress の規則の一覧 (toPorts は不要)。
+  # 空なら規則を作らない (cilium では kubelet の probe のため host を常に許す)。
+  exposedFrom: []
+  # egress は egress の規則の一覧 (種類に応じた形式。cilium では toFQDNs も書ける)。
+  # 空なら egress を制限しない。与えた場合は、本サービスが必要とする通信 (Kubernetes API
+  # server・DPF API・DNS、OTLP の送出先、プロキシ) をすべて含めること (README を参照)。
+  egress: []
+
+# proxy は HTTP プロキシである。httpsProxy を与えた場合にのみ HTTPS_PROXY / NO_PROXY を渡す。
+# Kubernetes API はプロキシを経由させないため、NO_PROXY の先頭に $(KUBERNETES_SERVICE_HOST) を置く。
+proxy:
+  httpsProxy: ""
+  # noProxy はプロキシを経由しない宛先 (カンマ区切り)。
+  noProxy: ""
+
+# resources は CPU・メモリの requests と limits である。
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# securePort はコンテナが webhook を待ち受けるポート。Service は 443 で公開する。
+# 非 root かつ capability を持たないコンテナは 1024 未満を確実には待ち受けられないため
+# 1024 以上とする (research.md D-07)。
+securePort: 10443
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

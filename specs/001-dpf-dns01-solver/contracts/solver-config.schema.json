@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iij/cert-manager-iij-dpf-webhook/specs/001-dpf-dns01-solver/contracts/solver-config.schema.json",
+  "title": "IIJ DPF DNS01 Solver Config",
+  "description": "cert-manager の Issuer / ClusterIssuer における spec.acme.solvers[].dns01.webhook.config のスキーマ。groupName は acme.dns-platform.jp、solverName は iij-dpf。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "endpoint": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "default": "https://api.dns-platform.jp/dpf/v1",
+      "description": "DPF API のエンドポイント。省略時は既定値。https 以外は拒否する。"
+    },
+    "tokenSecretRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "DPF アクセストークンを保持する Secret の参照。",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "dpf-token",
+          "description": "Secret 名。空文字または省略時は dpf-token。"
+        },
+        "key": {
+          "type": "string",
+          "default": "token",
+          "description": "Secret 内のキー。空文字または省略時は token。"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "ClusterIssuer 由来の要求のときのみ有効。省略時は本 Pod が動作している namespace。namespace 限定の Issuer 由来の要求でこの値が ResourceNamespace と異なる場合、要求は失敗する (読み替えない)。"
+        }
+      }
+    },
+    "domainFilters": {
+      "type": "array",
+      "default": [],
+      "description": "変更してよいゾーンのパターン。空または省略時はいかなるゾーンも変更しない。判定対象は cert-manager が求めた委任先のゾーン (ResolvedZone) と一致する DPF のゾーンであり、CNAME 委譲先が別ゾーンならそのゾーンに対して判定する。",
+      "items": {
+        "type": "string",
+        "description": "次の 3 形式のみを受け付ける。(1) '*' = すべてのゾーン。(2) '*.<ドメイン>' = そのドメイン配下のすべてのゾーン (深さを問わない。ドメイン自身は含まない)。(3) '<ドメイン>' = 完全一致。ラベルの一部が '*' であるパターン (例: *example.jp) および '*' が先頭以外のラベルに現れるパターンは拒否する。",
+        "pattern": "^(\\*|\\*\\.[^*]+|[^*]+)$"
+      }
+    }
+  },
+  "examples": [
+    {
+      "domainFilters": ["example.jp", "*.example.jp"]
+    },
+    {
+      "endpoint": "https://api.dns-platform.jp/dpf/v1",
+      "tokenSecretRef": {
+        "name": "dpf-token",
+        "key": "token",
+        "namespace": "cert-manager"
+      },
+      "domainFilters": ["*"]
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+server: https://acme-v02.api.letsencrypt.org/directory

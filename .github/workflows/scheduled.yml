@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 定期的な脆弱性の検査 (憲章「開発ワークフローと品質ゲート」)。コードが変わらなくても
+# 新たな脆弱性は公開されるため、PR 時に加えて定期的に実行する。
+name: scheduled
+
+on:
+  schedule:
+    - cron: "17 0 * * 1"   # 毎週月曜 09:17 (JST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: govulncheck
+        run: make vuln
+
+      - name: イメージのビルド
+        run: make image IMAGE=cert-manager-iij-dpf-webhook:scheduled
+
+      - name: イメージの脆弱性スキャン
+        run: make scan-image IMAGE=cert-manager-iij-dpf-webhook:scheduled

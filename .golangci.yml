@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 静的解析と整形の設定。手元と CI が同一の設定・同一の版で動くことが要件である
+# (憲章「コード品質」)。golangci-lint の版は Makefile の GOLANGCI_LINT_VERSION が
+# 唯一の出典であり、CI は Makefile を経由して実行する。
+
+version: "2"
+
+linters:
+  # 有効な linter を明示する。既定のセットに任せると、golangci-lint の版が
+  # 上がったときに指摘の集合が黙って変わる。
+  # bodyclose は採用しない。dpf-go の生成コードが応答の本文を読み切って閉じるため、
+  # 呼び出し側の指摘はすべて誤検出になる。
+  default: standard
+  enable:
+    - nolintlint
+    - errorlint
+    - misspell
+  settings:
+    nolintlint:
+      # 抑制には理由と対象 linter の明示を求める (憲章「コード品質」)。
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+formatters:
+  enable:
+    - gofmt

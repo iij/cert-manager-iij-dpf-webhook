@@ -1,0 +1,11 @@
+# Claude Code の個人設定
+.claude/settings.local.json
+
+# ビルド成果物
+/webhook
+*.test
+*.out
+/dist/
+
+# 実環境での検証の kubeconfig (make e2e)
+/.e2e/

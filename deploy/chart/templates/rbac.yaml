@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# 権限は用途 1 (トークンの Secret の get) と用途 2 (集約 API サーバの枠組み) に限る (D-08)。
+# ワイルドカードを用いない。
+#
+# 用途 1: トークンの Secret を get する。対象の namespace ごとに Role/RoleBinding を作り、
+# ClusterRole で全 namespace へ付与しない。
+#   - tokenSecrets.releaseNamespace: ClusterIssuer の既定の取得元である本 Pod の namespace
+#   - tokenSecrets.namespaces: namespace 限定の Issuer を置く namespace と、ClusterIssuer の
+#     tokenSecretRef.namespace が指す namespace
+{{- $namespaces := list }}
+{{- if .Values.tokenSecrets.releaseNamespace }}
+{{- $namespaces = append $namespaces .Release.Namespace }}
+{{- end }}
+{{- range .Values.tokenSecrets.namespaces }}
+{{- $namespaces = append $namespaces . }}
+{{- end }}
+{{- range $ns := uniq $namespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "webhook.fullname" $ }}:secret-reader
+  namespace: {{ $ns }}
+  labels:
+    {{- include "webhook.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "webhook.fullname" $ }}:secret-reader
+  namespace: {{ $ns }}
+  labels:
+    {{- include "webhook.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "webhook.fullname" $ }}:secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "webhook.fullname" $ }}
+    namespace: {{ $.Release.Namespace }}
+---
+{{- end }}
+# 用途 2: 集約層向け CA の取得 (委譲認証が informer を用いるため list / watch を含む)。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "webhook.fullname" . }}:auth-reader
+  namespace: kube-system
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["extension-apiserver-authentication"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "webhook.fullname" . }}:auth-reader
+  namespace: kube-system
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "webhook.fullname" . }}:auth-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "webhook.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# 用途 2: 認証・認可の委譲 (tokenreviews / subjectaccessreviews の create)。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "webhook.fullname" . }}:auth-delegator
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "webhook.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# cert-manager に solver の呼び出しを許可する (本サービスの権限ではない)。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "webhook.fullname" . }}:domain-solver
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [{{ .Values.groupName | quote }}]
+    resources: ["iij-dpf"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "webhook.fullname" . }}:domain-solver
+  labels:
+    {{- include "webhook.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "webhook.fullname" . }}:domain-solver
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.certManager.serviceAccountName }}
+    namespace: {{ .Values.certManager.namespace }}
